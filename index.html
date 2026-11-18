@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Qur'on O'rgan: so'zma-so'z</title>
+<meta name="theme-color" content="#0E5C48">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Qur'on so'zma-so'z">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <button id="backBtn" class="iconbtn hidden" aria-label="Orqaga">&#8592;</button>
+  <div id="title">Qur'on O'rgan</div>
+  <button id="topAction2" class="iconbtn hidden"></button>
+  <button id="topAction" class="iconbtn hidden"></button>
+</header>
+<main id="view"></main>
+<div id="player" class="hidden">
+  <button id="plPrev" class="iconbtn">&#9198;</button>
+  <button id="plPlay" class="iconbtn big">&#9208;</button>
+  <button id="plNext" class="iconbtn">&#9197;</button>
+  <div id="plInfo"></div>
+  <button id="plStop" class="iconbtn">&#10005;</button>
+</div>
+<nav id="tabs">
+  <button data-tab="quran" class="on"><span>&#128214;</span>Qur'on</button>
+  <button data-tab="learn"><span>&#127891;</span>O'rganish</button>
+  <button data-tab="vocab"><span>&#127183;</span>Lug'at<i id="vBadge" class="badge hidden">0</i></button>
+  <button data-tab="saved"><span>&#128278;</span>Saqlangan</button>
+  <button data-tab="settings"><span>&#9881;</span>Sozlamalar</button>
+</nav>
+<div id="sheet" class="hidden"><div class="sheet-bg"></div><div class="sheet-box"><div class="sheet-handle"></div><div id="sheetBody"></div></div></div>
+<audio id="audio" preload="auto"></audio>
+<audio id="waudio" preload="auto"></audio>
+<script src="data.js"></script>
+<script src="uzdict.js"></script>
+<script src="qdata.js"></script>
+<script src="tajweed.js"></script>
+<script src="indopak.js"></script>
+<script src="morph.js"></script>
+<script src="app.js"></script>
+<script>try { if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function(){}); } catch (e) {}</script>
+</body>
+</html>
