@@ -310,3 +310,9 @@ input, select, textarea { font-size: 16px; }
 #iosTip { margin: 12px; padding: 12px 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-size: 14px; line-height: 1.5; position: relative; }
 #iosTip b { color: var(--green); }
 #iosTip button { position: absolute; top: 4px; right: 6px; background: none; border: 0; font-size: 20px; color: var(--muted); }
+/* Poralar va avto o'qish */
+.juzmark { text-align: center; color: var(--gold); font-weight: 600; font-size: 14px; margin: 14px 12px 4px; padding: 6px; border-top: 1px dashed var(--gold); border-bottom: 1px dashed var(--gold); }
+#asbar { display: flex; align-items: center; gap: 2px; background: var(--head); color: #fff; padding: 4px 8px; flex-shrink: 0; }
+#asbar .aslbl { flex: 1; font-size: 14px; font-weight: 600; padding-left: 4px; }
+#asbar .asspd { font-size: 13px; min-width: 64px; text-align: center; }
+#asbar .iconbtn { width: 40px; height: 40px; font-size: 20px; }

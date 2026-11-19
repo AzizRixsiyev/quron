@@ -24,7 +24,7 @@ const store = {
 const DEF = {
   theme: "light", ar: 30, tr: 16, script: "lat", tr_key: "uzbek_sadiq", showTr: true,
   wbw: true, translit: false, wbwLang: "uz", wbwFallback: "ru",
-  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: false, remTime: "20:00"
+  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: false, remTime: "20:00", scrollSpeed: 3
 };
 const S = Object.assign({}, DEF, store.get("settings", {}));
 const save = () => store.set("settings", S);
@@ -164,6 +164,7 @@ function push(fn, args) {
 }
 function render(scroll) {
   const top = stack[stack.length - 1];
+  if (typeof AS !== "undefined" && AS.on && top.fn !== vSura) asStop();
   view.innerHTML = "";
   top.fn.apply(null, top.args);
   view.scrollTop = scroll || 0;
@@ -217,6 +218,93 @@ function playWord(url, fallbackText) {
   wAudio.src = url; wAudio.play().catch(() => speak(fallbackText));
 }
 
+// ---------- Poralar (juz) ----------
+const JUZ = [[1,1],[2,142],[2,253],[3,93],[4,24],[4,148],[5,82],[6,111],[7,88],[8,41],[9,93],[11,6],[12,53],[15,1],[17,1],[18,75],[21,1],[23,1],[25,21],[27,56],[29,46],[33,31],[36,28],[39,32],[41,47],[46,1],[51,31],[58,1],[67,1],[78,1]];
+const AR_NUM = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+function juzEnd(j) { if (j >= 30) return [114, 6]; const [s, a] = JUZ[j]; return a > 1 ? [s, a - 1] : [s - 1, SURAS[s - 2][2]]; }
+function juzOf(s, a) { let j = 1; for (let i = 0; i < 30; i++) { const [js, ja] = JUZ[i]; if (s > js || (s === js && a >= ja)) j = i + 1; } return j; }
+function juzStartAt(s, a) { for (let i = 0; i < 30; i++) if (JUZ[i][0] === s && JUZ[i][1] === a) return i + 1; return 0; }
+function juzSegments(j) {
+  const [s1, a1] = JUZ[j - 1], [s2, a2] = juzEnd(j), out = [];
+  for (let s = s1; s <= s2; s++) out.push([s, s === s1 ? a1 : 1, s === s2 ? a2 : SURAS[s - 1][2]]);
+  return out;
+}
+const segLabel = ([s, a, b]) => `${SURAS[s - 1][0]} ${a === 1 && b === SURAS[s - 1][2] ? "(to'liq)" : a + "–" + b}`;
+function vJuz(j) {
+  setTitle(`${j}-pora`, true);
+  const segs = juzSegments(j), [s1, a1] = JUZ[j - 1], [s2, a2] = juzEnd(j);
+  const n = segs.reduce((t, x) => t + x[2] - x[1] + 1, 0);
+  view.innerHTML = `<div class="sura-head"><div class="ar">الجُزْءُ ${AR_NUM(j)}</div>
+    <div class="meta">${esc(SURAS[s1 - 1][0])} ${a1} — ${esc(SURAS[s2 - 1][0])} ${a2} · ${n} oyat</div>
+    <div class="playall"><button class="btn" id="jRead">📖 O'qishni boshlash</button><button class="btn out" id="jAuto">⇣ Avto o'qish</button></div></div>
+    <div class="card">${segs.map(x => `<div class="row" data-s="${x[0]}" data-a="${x[1]}"><div class="num">${x[0]}</div><div class="rmain"><div class="rtitle">${esc(SURAS[x[0] - 1][0])}</div>
+      <div class="rsub">${x[1] === 1 && x[2] === SURAS[x[0] - 1][2] ? "To'liq sura" : x[1] + "–" + x[2] + "-oyatlar"} · ${x[2] - x[1] + 1} oyat</div></div><div class="rar">${SURAS[x[0] - 1][1]}</div></div>`).join("")}</div>
+    <div class="playall" style="margin:4px 0 16px">${j > 1 ? `<button class="btn out" id="jPrev">← ${j - 1}-pora</button>` : ""}${j < 30 ? `<button class="btn out" id="jNext">${j + 1}-pora →</button>` : ""}</div>`;
+  $("#jRead").onclick = () => openSura(s1, a1);
+  $("#jAuto").onclick = () => { openSura(s1, a1); setTimeout(asStart, 700); };
+  $$(".row[data-s]", view).forEach(r => r.onclick = () => openSura(+r.dataset.s, +r.dataset.a));
+  const pv = $("#jPrev"); if (pv) pv.onclick = () => { stack[stack.length - 1].args = [j - 1]; render(0); };
+  const nx = $("#jNext"); if (nx) nx.onclick = () => { stack[stack.length - 1].args = [j + 1]; render(0); };
+}
+
+// ---------- Avto-aylantirish (o'qiyotganda sekin pastga tushish) ----------
+const AS_SPEEDS = [6, 9, 13, 18, 24, 31, 40, 52, 66, 85]; // px/soniya
+const AS = { on: false, paused: false, raf: 0, last: 0, pos: 0, hold: 0, wake: null };
+function asBar() {
+  let b = document.getElementById("asbar");
+  if (!b) {
+    b = document.createElement("div"); b.id = "asbar"; b.className = "hidden";
+    b.innerHTML = `<button class="iconbtn" id="asPP">⏸</button><span class="aslbl">Avto o'qish</span>
+      <button class="iconbtn" id="asMinus">−</button><span id="asSpd" class="asspd"></span><button class="iconbtn" id="asPlus">+</button>
+      <button class="iconbtn" id="asX">✕</button>`;
+    const pl = document.getElementById("player"); pl.parentNode.insertBefore(b, pl);
+    b.querySelector("#asPP").onclick = () => { AS.paused = !AS.paused; AS.last = 0; asUpd(); };
+    b.querySelector("#asMinus").onclick = () => { S.scrollSpeed = Math.max(1, (S.scrollSpeed || 3) - 1); save(); asUpd(); };
+    b.querySelector("#asPlus").onclick = () => { S.scrollSpeed = Math.min(10, (S.scrollSpeed || 3) + 1); save(); asUpd(); };
+    b.querySelector("#asX").onclick = asStop;
+    const hold = () => { AS.hold = Date.now() + 2500; };
+    view.addEventListener("touchstart", hold, { passive: true });
+    view.addEventListener("wheel", hold, { passive: true });
+    view.addEventListener("mousedown", hold);
+  }
+  return b;
+}
+function asUpd() {
+  const b = asBar(); b.classList.toggle("hidden", !AS.on);
+  b.querySelector("#asPP").textContent = AS.paused ? "▶" : "⏸";
+  b.querySelector("#asSpd").textContent = "Tezlik " + (S.scrollSpeed || 3);
+}
+function asWake(on) {
+  if (NATIVE) { Native.keepScreenOn(on || player.playing); return; }
+  try {
+    if (on && navigator.wakeLock && !AS.wake) navigator.wakeLock.request("screen").then(l => { AS.wake = l; }).catch(() => {});
+    if (!on && AS.wake) { AS.wake.release().catch(() => {}); AS.wake = null; }
+  } catch (e) {}
+}
+function asStart() {
+  if (!S.scrollSpeed) S.scrollSpeed = 3;
+  AS.on = true; AS.paused = false; AS.last = 0; AS.pos = view.scrollTop; AS.hold = 0;
+  asUpd(); asWake(true);
+  cancelAnimationFrame(AS.raf); AS.raf = requestAnimationFrame(asTick);
+  toast("Avto o'qish: ekranga tegsangiz bir oz to'xtaydi. Tezlikni − / + bilan o'zgartiring.");
+}
+function asStop() { AS.on = false; cancelAnimationFrame(AS.raf); asUpd(); asWake(false); }
+function asTick(t) {
+  if (!AS.on) return;
+  AS.raf = requestAnimationFrame(asTick);
+  if (AS.paused || Date.now() < AS.hold) { AS.last = 0; AS.pos = view.scrollTop; return; }
+  if (!AS.last) { AS.last = t; AS.pos = view.scrollTop; return; }
+  const dt = Math.min(0.1, (t - AS.last) / 1000); AS.last = t;
+  if (Math.abs(view.scrollTop - Math.round(AS.pos)) > 2) AS.pos = view.scrollTop;
+  AS.pos += AS_SPEEDS[(S.scrollSpeed || 3) - 1] * dt;
+  view.scrollTop = Math.round(AS.pos);
+  if (view.scrollTop + view.clientHeight >= view.scrollHeight - 2) {
+    const nx = $("#nextSura");
+    if (nx) { AS.paused = true; asUpd(); toast("Sura tugadi. «Keyingi sura» tugmasini bosing yoki ▶ bilan davom eting."); }
+    else { asStop(); }
+  }
+}
+
 // ---------- Bosh sahifa (suralar ro'yxati) ----------
 let listFilter = "all", listQuery = "";
 function vHome() {
@@ -234,6 +322,7 @@ function vHome() {
   }
   h += `<div class="pad" style="padding-bottom:4px"><input class="search" id="q" placeholder="Sura nomi yoki raqami..." value="${esc(listQuery)}"></div>
     <div class="chips"><button class="chip ${listFilter === "all" ? "on" : ""}" data-f="all">Barcha suralar</button>
+    <button class="chip ${listFilter === "juz" ? "on" : ""}" data-f="juz">30 pora (juz)</button>
     <button class="chip ${listFilter === "short" ? "on" : ""}" data-f="short">Yod olish uchun qisqa suralar</button></div>
     <div class="card" id="list"></div>`;
   view.innerHTML = h;
@@ -246,6 +335,17 @@ function vHome() {
 }
 function fillList() {
   const q = listQuery.trim().toLowerCase().replace(/[‘’'`ʻ\-\s]/g, "");
+  if (listFilter === "juz") {
+    let js = Array.from({ length: 30 }, (_, i) => i + 1);
+    if (q) js = js.filter(j => String(j) === q.replace(/pora|juz/g, "") || juzSegments(j).some(x => SURAS[x[0] - 1][0].toLowerCase().replace(/[‘’'`ʻ\-\s]/g, "").includes(q)));
+    $("#list").innerHTML = js.map(j => {
+      const segs = juzSegments(j), [s1, a1] = JUZ[j - 1], [s2, a2] = juzEnd(j);
+      return `<div class="row" data-j="${j}"><div class="num">${j}</div><div class="rmain"><div class="rtitle">${j}-pora</div>
+        <div class="rsub">${esc(SURAS[s1 - 1][0])} ${a1} — ${esc(SURAS[s2 - 1][0])} ${a2}</div></div><div class="rar">جزء ${AR_NUM(j)}</div></div>`;
+    }).join("") || `<div class="empty">Hech narsa topilmadi</div>`;
+    $$("#list .row").forEach(r => r.onclick = () => push(vJuz, [+r.dataset.j]));
+    return;
+  }
   let ids = listFilter === "short" ? SHORT_SURAS.slice() : SURAS.map((_, i) => i + 1);
   if (q) ids = ids.filter(i => String(i) === q || SURAS[i - 1][0].toLowerCase().replace(/[‘’'`ʻ\-\s]/g, "").includes(q) || SURAS[i - 1][1].includes(listQuery.trim()));
   $("#list").innerHTML = ids.map(i => {
@@ -297,14 +397,16 @@ function vSura(s, gotoA) {
   setTitle(`${s}. ${info[0]}`, true, { icon: "Aa", fn: () => readerSettings(s) },
     { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); const a = topAyah(); stack[stack.length - 1].args = [s, a]; render(0); } });
   view.innerHTML = `<div class="sura-head"><div class="ar">سُورَةُ ${info[1]}</div>
-    <div class="meta">${info[3] === "M" ? "Makkiy" : "Madaniy"} sura · ${info[2]} oyat</div>
-    <div class="playall"><button class="btn" id="playAll">▶ Butun surani tinglash</button><button class="btn out" id="playFrom">Davomidan</button></div></div>
+    <div class="meta">${info[3] === "M" ? "Makkiy" : "Madaniy"} sura · ${info[2]} oyat · ${(() => { const a = juzOf(s, 1), b = juzOf(s, info[2]); return a === b ? a + "-pora" : a + "–" + b + "-poralar"; })()}</div>
+    <div class="playall"><button class="btn" id="playAll">▶ Butun surani tinglash</button><button class="btn out" id="playFrom">Davomidan</button></div>
+    <div class="playall"><button class="btn out" id="autoRead">⇣ Avto o'qish</button></div></div>
     <div id="rd"><div class="loading"><div class="spinner"></div>Yuklanmoqda...</div></div>`;
   const uzCov = uzCoverage(s), hasUz = S.wbwLang === "uz" && uzCov >= 0.999;
   const lang = S.wbwLang === "uz" ? S.wbwFallback : S.wbwLang;
   const verses = localVerses(s);
   $("#playAll").onclick = () => { if (player.s === s && player.playing) { stopPlayer(); return; } startPlayer(s, 1); toast(`${info[0]} — butun sura tinglanmoqda`); };
   $("#playFrom").onclick = () => { const a = topAyah(); startPlayer(s, a); toast(`${a}-oyatdan tinglanmoqda`); };
+  $("#autoRead").onclick = () => { if (AS.on) asStop(); else asStart(); };
   const alive = () => stack.length && stack[stack.length - 1].fn === vSura && stack[stack.length - 1].args[0] === s;
   cur = { s, verses, tr: {}, hasUz, lang, apiLang: "english", trErr: false };
   const draw = (keepScroll) => {
@@ -318,9 +420,11 @@ function vSura(s, gotoA) {
     if (cur.trErr) h += `<div class="banner">Oyat tarjimasini yuklab bo'lmadi — internetni tekshiring. Arabcha matn va so'zma-so'z ma'nolar ilova ichida bor.</div>`;
     if (s !== 1 && s !== 9) h += `<div class="bism">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>`;
     h += S.arOnly ? mushafHtml(s) : cur.verses.map(v => ayahHtml(s, v)).join("");
+    if (s < 114) h += `<div class="playall" style="margin:18px 0 6px"><button class="btn" id="nextSura">${s + 1}. ${esc(SURAS[s][0])} →</button></div>`;
     h += `<div class="foot">Arabcha matn: Tanzil/QUL · Morfologiya: quran-search-engine (MIT) · So'z ma'lumotlari: Quran.com · Tarjima va tafsir: QuranEnc.com · Audio: EveryAyah.com</div>`;
     rd.innerHTML = h;
     bindReader(rd, s);
+    const ns = $("#nextSura"); if (ns) ns.onclick = () => { const keep = AS.on; stack[stack.length - 1].args = [s + 1, 1]; render(0); if (keep) setTimeout(asStart, 600); };
     if (keepScroll) view.scrollTop = st;
     else if (gotoA && gotoA > 1) { const el = $("#a" + gotoA); if (el) view.scrollTop = el.offsetTop - 8; }
     if (player.s === s && player.a) markPlaying(player.a);
@@ -723,6 +827,10 @@ function vReview(queue, extra) {
 }
 
 function ayahHtml(s, v) {
+  const jm = juzStartAt(s, v.verse_number);
+  return (jm ? `<div class="juzmark">۞ ${jm}-pora (juz) boshlanishi ۞</div>` : "") + ayahHtml0(s, v);
+}
+function ayahHtml0(s, v) {
   const n = v.verse_number, key = s + ":" + n;
   const aw = ayahWords(s, v, true);
   const tr = S.showTr ? cyr2lat(splitEnc(S.tr_key, cur.tr[n]).main) : "";
@@ -1276,7 +1384,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.3<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.4<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();
