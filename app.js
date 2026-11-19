@@ -164,8 +164,8 @@ function push(fn, args) {
 }
 function render(scroll) {
   const top = stack[stack.length - 1];
-  if (typeof AS !== "undefined" && AS.on && top.fn !== vSura && top.fn !== vPage) asStop();
-  view.innerHTML = ""; view.ontouchstart = null; view.ontouchend = null;
+  if (typeof AS !== "undefined" && AS.on && top.fn !== vSura && top.fn !== vPage && top.fn !== vMushaf) asStop();
+  view.innerHTML = ""; view.ontouchstart = null; view.ontouchend = null; view.onscroll = null; if (top.fn !== vMushaf) M = null;
   top.fn.apply(null, top.args);
   view.scrollTop = scroll || 0;
   immUpdate();
@@ -197,16 +197,22 @@ function openSheet(html, onMount) {
   $(".sheet-box").scrollTop = 0;
   if (onMount) onMount($("#sheetBody"));
 }
-function closeSheet() { $("#sheet").classList.add("hidden"); $$(".w.sel").forEach(x => x.classList.remove("sel")); }
+let LAST_AY = null;
+function closeSheet() {
+  const w = $(".w.sel"), ay = (w && w.closest("[data-n]")) || LAST_AY;
+  $("#sheet").classList.add("hidden"); $$(".w.sel").forEach(x => x.classList.remove("sel"));
+  if (ay && document.contains(ay)) { ay.classList.remove("flash2"); void ay.offsetWidth; ay.classList.add("flash2"); setTimeout(() => ay.classList.remove("flash2"), 3500); }
+  LAST_AY = null;
+}
 $(".sheet-bg").onclick = closeSheet;
 
 function applyTheme() {
-  document.body.classList.remove("dark", "sepia", "ms-madina", "ms-oldmadina", "ms-indopak", "ms-amiri");
+  document.body.classList.remove("dark", "sepia", "qmushaf", "ms-madina", "ms-oldmadina", "ms-indopak", "ms-amiri", "ms-kfgqpc");
   document.body.classList.add("ms-" + (S.mushaf || "madina"));
   if (S.theme !== "light") document.body.classList.add(S.theme);
   document.documentElement.style.setProperty("--ar", S.ar + "px");
   document.documentElement.style.setProperty("--tr", S.tr + "px");
-  if (NATIVE) Native.setBarColor({ dark: "#0b1120", sepia: "#6b4423" }[S.theme] || "#0E5C48");
+  if (NATIVE) Native.setBarColor({ dark: "#0b1120", sepia: "#6b4423", qmushaf: "#5c4a36" }[S.theme] || "#0E5C48");
 }
 
 function speak(t) {
@@ -280,9 +286,38 @@ function markRead() {
   if (n >= 2) setTimeout(() => toast(n === 7 || n === 30 || n === 40 || n === 100 || n === 365 ? `🎉 ${n} kun ketma-ket! Alloh qabul qilsin, davom eting!` : `🔥 ${n} kun ketma-ket Qur'on o'qiyapsiz. Barakalla!`), 900);
   syncNative();
 }
+// Bugun Qur'on bilan o'tkazilgan vaqt (o'qish oynalarida, faol bo'lgan paytda)
+const readTime = () => store.get("readTime", {});
+const todaySec = () => readTime()[dayKey()] || 0;
+function fmtMin(sec) { const m = Math.floor(sec / 60); return m < 60 ? m + " daqiqa" : Math.floor(m / 60) + " soat " + (m % 60) + " daqiqa"; }
+const RT = { last: Date.now() };
+["touchstart", "scroll", "click", "keydown", "wheel"].forEach(ev => document.addEventListener(ev, () => { RT.last = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => {
+  if (document.visibilityState && document.visibilityState !== "visible") return;
+  const top = stack[stack.length - 1]; if (!top || (top.fn !== vSura && top.fn !== vPage && top.fn !== vMushaf)) return;
+  if (!(Date.now() - RT.last < 120000 || (AS.on && !AS.paused) || player.playing)) return;
+  const d = readTime(), k = dayKey(), before = d[k] || 0; d[k] = before + 10;
+  const keys = Object.keys(d).sort(); while (keys.length > 120) delete d[keys.shift()];
+  store.set("readTime", d);
+  const m0 = Math.floor(before / 60), m1 = Math.floor(d[k] / 60);
+  if (m1 !== m0 && [10, 20, 30, 45, 60, 90, 120].includes(m1)) toast(`⏱ Bugun ${m1} daqiqa Qur'on bilan bo'ldingiz. Barakalla!`);
+  const el = $("#rtNow"); if (el) el.textContent = fmtMin(d[k]);
+  if (m1 !== m0) syncNative();
+}, 10000);
+function statsSheet() {
+  const rt = readTime(), dp = dayPages(), days = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(d); }
+  const wd = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+  const mx = Math.max(60, ...days.map(d => rt[dayKey(d)] || 0));
+  const tot = days.reduce((t, d) => t + (rt[dayKey(d)] || 0), 0), totP = days.reduce((t, d) => t + ((dp[dayKey(d)] || []).length), 0);
+  openSheet(`<h3>📊 So'nggi 7 kun</h3>
+    <div class="st-sum"><div><b>${fmtMin(tot)}</b><small>jami vaqt</small></div><div><b>${totP}</b><small>sahifa</small></div><div><b>${readStreak()}</b><small>kun ketma-ket</small></div></div>
+    <div class="st-bars">${days.map(d => { const v = rt[dayKey(d)] || 0, pg = (dp[dayKey(d)] || []).length; return `<div class="st-col"><small>${Math.round(v / 60)}′</small><i style="height:${Math.max(3, Math.round(v / mx * 110))}px"></i><span>${wd[d.getDay()]}</span><small>${pg} s.</small></div>`; }).join("")}</div>
+    <div class="hint">Vaqt Qur'on o'qish oynasida faol bo'lgan paytingiz (aylantirish, tinglash, avto o'qish) hisoblanadi.</div>`);
+}
 function streakHtml() {
   const n = readStreak(), t = readDays().includes(dayKey());
-  return `<div class="streak"><span class="fire">${n ? "🔥" : "🌱"}</span><div><b>${n ? n + " kun ketma-ket" : "Bugundan boshlang"}</b><small>${t ? "Bugun o'qildi ✓" : "Bugun hali o'qilmadi"} · ${todayPages()}/${S.pageGoal || 10} sahifa</small></div></div>`;
+  return `<div class="streak" id="streakCard"><span class="fire">${n ? "🔥" : "🌱"}</span><div><b>${n ? n + " kun ketma-ket" : "Bugundan boshlang"}</b><small>${t ? "Bugun o'qildi ✓" : "Bugun hali o'qilmadi"} · ${todayPages()}/${S.pageGoal || 10} sahifa</small><small>⏱ Bugun: <span id="rtNow">${fmtMin(todaySec())}</span></small></div><span class="st-go">📊</span></div>`;
 }
 const curCache = {};
 function curFor(s) {
@@ -290,12 +325,13 @@ function curFor(s) {
   return curCache[s];
 }
 function vPage(p, fs, fa) {
+  if (S.theme === "qmushaf") { stack[stack.length - 1] = { fn: vMushaf, args: [p, fs, fa] }; vMushaf(p, fs, fa); return; }
   p = Math.max(1, Math.min(604, p | 0));
   const segs = pageSegments(p), [s1, a1] = PAGES[p - 1];
   const done = markPageRead(p), goal = S.pageGoal || 10;
   setTitle(`${p}-sahifa`, true, { icon: "Aa", fn: () => readerSettings(s1) },
     { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); render(0); } });
-  view.innerHTML = `<div class="pg-top"><span class="pg-info">${esc(segs.map(x => SURAS[x[0] - 1][0]).join(" · "))} · ${juzOf(s1, a1)}-pora · ${hizbOf(s1, a1)}-hizb · ${p}-sahifa</span><button class="pg-goal ${done >= goal ? "ok" : ""}" id="pgGoalBtn">Bugun: ${done}/${goal}</button></div>
+  view.innerHTML = `<div class="pg-top"><span class="pg-info">${esc(segs.map(x => SURAS[x[0] - 1][0]).join(" · "))} · ${juzOf(s1, a1)}-pora · ${hizbOf(s1, a1)}-hizb · ${p}-sahifa</span><button class="pg-goal ${done >= goal ? "ok" : ""}" id="pgGoalBtn">Bugun: ${done}/${goal} · ⏱ <span id="rtNow">${fmtMin(todaySec())}</span></button></div>
     <div id="pgBody"><div class="loading"><div class="spinner"></div></div></div>
     <div class="pg-nav"><button class="btn out" id="pgPrev" ${p <= 1 ? "disabled" : ""}>← ${p > 1 ? p - 1 : ""}</button><button class="pg-num" id="pgJump"># ${p} / 604</button><button class="btn out pg-play" id="pgPlay">▶</button><button class="btn out pg-play" id="pgAuto">⇣</button><button class="btn" id="pgNext" ${p >= 604 ? "disabled" : ""}>${p < 604 ? p + 1 : ""} →</button></div>`;
   const go = (d) => { const np = p + d; if (np < 1 || np > 604) return; stack[stack.length - 1].args = [np]; render(0); };
@@ -342,8 +378,90 @@ function pageJump() {
 function openPage(p) {
   if (tab !== "quran") { tab = "quran"; $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === "quran")); stack = [{ fn: vHome, args: [] }]; }
   const top = stack[stack.length - 1];
-  if (top.fn === vPage) { top.args = [p]; render(0); } else push(vPage, [p]);
+  if (top.fn === vPage || top.fn === vMushaf) { top.args = [p]; render(0); } else push(vPage, [p]);
 }
+
+// ---------- Mushaf rejimi: faqat Qur'on, uzluksiz sahifalar, tepada pora/sahifa/sura ----------
+let M = null;
+function mushafPageHtml(q) {
+  return `<div class="mp-page" data-p="${q}">` + pageSegments(q).map(([s, a, b]) => {
+    const c = curFor(s); let h = "";
+    if (a === 1) h += `<div class="mp-sura"><span>سُورَةُ ${SURAS[s - 1][1]}</span><small>${s}. ${esc(SURAS[s - 1][0])} · ${SURAS[s - 1][2]} oyat</small></div>` + (s !== 1 && s !== 9 ? `<div class="bism mp-bism">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>` : "");
+    h += `<div class="mushaf mp-text">` + c.verses.filter(v => v.verse_number >= a && v.verse_number <= b).map(v => {
+      const aw = ayahWords(s, v, false);
+      return `<span class="ma ${aw.fallbackFont ? "ar-amiri" : ""}" data-n="${v.verse_number}">${aw.html.replace(/﴿([^﴾]+)﴾/, '<i class="cn">$1</i>')}</span>`;
+    }).join(" ") + `</div>`;
+    return `<div class="pg-seg" data-s="${s}">${h}</div>`;
+  }).join("") + `<div class="mp-pno">${q}</div></div>`;
+}
+function mushafBind(root) {
+  $$(".pg-seg", root).forEach(el => { if (el.dataset.b) return; el.dataset.b = 1; const s = +el.dataset.s; el.addEventListener("click", () => { cur = curFor(s); }, true); bindReader(el, s); });
+}
+function mushafAdd(q, atTop) {
+  const box = $("#mpages"); if (!box || q < 1 || q > 604) return;
+  if (atTop) { const h0 = view.scrollHeight, t0 = view.scrollTop; box.insertAdjacentHTML("afterbegin", mushafPageHtml(q)); view.scrollTop = t0 + (view.scrollHeight - h0); M.from = q; if (AS.on) AS.pos = view.scrollTop; }
+  else { box.insertAdjacentHTML("beforeend", mushafPageHtml(q)); M.to = q; }
+  mushafBind(box);
+  const pages = $$(".mp-page", box);
+  if (pages.length > 14) {
+    if (atTop) { pages[pages.length - 1].remove(); M.to--; }
+    else { const h0 = view.scrollHeight, t0 = view.scrollTop; pages[0].remove(); view.scrollTop = t0 - (h0 - view.scrollHeight); M.from++; if (AS.on) AS.pos = view.scrollTop; }
+  }
+}
+function mushafNote(t) {
+  const n = $("#mnote"); if (!n) return;
+  n.textContent = t; n.classList.add("on"); clearTimeout(M.nt); M.nt = setTimeout(() => n.classList.remove("on"), 2600);
+}
+function mushafUpdate(first) {
+  if (!M || !$("#mpages")) return;
+  const vr = view.getBoundingClientRect(), bar = $("#mbar"), y = (bar ? bar.getBoundingClientRect().bottom : vr.top) + 14;
+  let pEl = null, s = 0, a = 0;
+  for (const pg of $$(".mp-page", view)) { const r = pg.getBoundingClientRect(); if (r.bottom > y) { pEl = pg; break; } }
+  if (!pEl) return;
+  for (const ma of $$(".ma", pEl)) { const r = ma.getBoundingClientRect(); if (r.bottom > y) { s = +ma.closest(".pg-seg").dataset.s; a = +ma.dataset.n; break; } }
+  if (!s) { [s, a] = PAGES[+pEl.dataset.p - 1]; }
+  const p = +pEl.dataset.p, j = juzOf(s, a);
+  if (!first && M.j) {
+    if (j !== M.j) mushafNote(`۞ ${j}-pora (juz) boshlandi`);
+    else if (s !== M.s) mushafNote(`📖 ${s}. ${SURAS[s - 1][0]} surasi`);
+  }
+  if (p !== M.p) markPageRead(p);
+  M.p = p; M.s = s; M.a = a; M.j = j;
+  const tp = stack[stack.length - 1]; if (tp && tp.fn === vMushaf) tp.args = [p, s, a];
+  store.set("last", { s, a });
+  $("#mbJuz").textContent = `${j}-pora`; $("#mbPage").textContent = p; $("#mbSura").textContent = `${s}. ${SURAS[s - 1][0]}`;
+}
+function vMushaf(p, fs, fa) {
+  p = Math.max(1, Math.min(604, p | 0));
+  setTitle("Mushaf", true, { icon: "Aa", fn: () => readerSettings(M ? M.s : PAGES[p - 1][0]) });
+  M = { from: p, to: p - 1, p: 0, s: 0, a: 0, j: 0 };
+  view.innerHTML = `<div id="mbar" class="mbar"><button id="mbPlay" title="Tinglash">▶</button><button id="mbJuz" class="pill"></button><button id="mbPage" class="pill pno"></button><button id="mbSura" class="pill"></button><button id="mbAuto" title="Avto o'qish">⇣</button><div id="mnote" class="mnote"></div></div><div id="mpages"></div>`;
+  mushafAdd(p); mushafAdd(p + 1);
+  let tgt = $(`.mp-page[data-p="${p}"]`);
+  if (fs && fa) { const el = $(`.mp-page .pg-seg[data-s="${fs}"] [data-n="${fa}"]`); if (el) { tgt = el; if (!(PAGES[p - 1][0] === fs && PAGES[p - 1][1] === fa)) { el.classList.add("flash2"); setTimeout(() => el.classList.remove("flash2"), 3000); } } }
+  const bar = $("#mbar");
+  setTimeout(() => {
+    if (p > 1) mushafAdd(p - 1, true);
+    const el = tgt && document.contains(tgt) ? tgt : $(`.mp-page[data-p="${p}"]`);
+    if (el) view.scrollTop = el.getBoundingClientRect().top - view.getBoundingClientRect().top + view.scrollTop - (bar ? bar.offsetHeight : 0) - 6;
+    mushafUpdate(true);
+  }, 0);
+  let tick = 0;
+  view.onscroll = () => {
+    if (tick) return; tick = requestAnimationFrame(() => {
+      tick = 0; if (!M || !$("#mpages")) return;
+      if (view.scrollTop + view.clientHeight > view.scrollHeight - 2200 && M.to < 604) mushafAdd(M.to + 1);
+      if (view.scrollTop < 1400 && M.from > 1) mushafAdd(M.from - 1, true);
+      mushafUpdate(false);
+    });
+  };
+  $("#mbJuz").onclick = () => openSheet(`<h3>Porani tanlang</h3><div class="pg-grid">${Array.from({ length: 30 }, (_, i) => `<button class="pg-b ${i + 1 === M.j ? "on" : ""}" data-j="${i + 1}">${i + 1}</button>`).join("")}</div>`, b => $$("[data-j]", b).forEach(x => x.onclick = () => { closeSheet(); const [s, a] = JUZ[+x.dataset.j - 1]; mushafGo(s, a); }));
+  $("#mbSura").onclick = () => openSheet(`<h3>Surani tanlang</h3><div class="mp-slist">${SURAS.map((x, i) => `<button data-s="${i + 1}" class="${i + 1 === M.s ? "on" : ""}"><b>${i + 1}</b> ${esc(x[0])}<span>${x[1]}</span></button>`).join("")}</div>`, b => { $$("[data-s]", b).forEach(x => x.onclick = () => { closeSheet(); mushafGo(+x.dataset.s, 1); }); const on = $(".on", b); if (on) on.scrollIntoView({ block: "center" }); });
+  $("#mbPage").onclick = pageJump;
+  $("#mbPlay").onclick = () => { if (player.s && player.playing) { stopPlayer(); return; } startPlayer(M.s, M.a); toast(`${SURAS[M.s - 1][0]}, ${M.a}-oyatdan tinglanmoqda`); };
+  $("#mbAuto").onclick = () => { if (AS.on) asStop(); else asStart(); };
+}
+function mushafGo(s, a) { const tp = stack[stack.length - 1]; tp.args = [pageOf(s, a), s, a]; render(0); }
 
 // ---------- Avto-aylantirish (o'qiyotganda sekin pastga tushish) ----------
 const AS_SPEEDS = [6, 9, 13, 18, 24, 31, 40, 52, 66, 85]; // px/soniya
@@ -390,6 +508,8 @@ function asStop() { AS.on = false; cancelAnimationFrame(AS.raf); asUpd(); asWake
 function asTick(t) {
   if (!AS.on) return;
   AS.raf = requestAnimationFrame(asTick);
+  if (!$("#sheet").classList.contains("hidden")) { AS.sheet = true; AS.last = 0; AS.pos = view.scrollTop; return; }
+  if (AS.sheet) { AS.sheet = false; AS.hold = Date.now() + 2500; }
   if (AS.paused || Date.now() < AS.hold) { AS.last = 0; AS.pos = view.scrollTop; return; }
   if (!AS.last) { AS.last = t; AS.pos = view.scrollTop; return; }
   const dt = Math.min(0.1, (t - AS.last) / 1000); AS.last = t;
@@ -415,10 +535,10 @@ function immSet(on) {
 function immArm() { clearTimeout(IMM.t); if (IMM.armed) IMM.t = setTimeout(() => { if (IMM.armed && $("#sheet").classList.contains("hidden")) immSet(true); }, 3000); }
 function immUpdate() {
   const top = stack[stack.length - 1];
-  IMM.armed = !!(top && (top.fn === vSura || top.fn === vPage) && S.arOnly && S.immersive !== false);
+  IMM.armed = !!(top && (((top.fn === vSura || top.fn === vPage) && S.arOnly) || top.fn === vMushaf) && S.immersive !== false);
   if (!IMM.bound) {
     IMM.bound = true;
-    view.addEventListener("click", e => { if (IMM.on) { e.stopPropagation(); e.preventDefault(); immSet(false); } immArm(); }, true);
+    view.addEventListener("click", e => { if (IMM.on) { immSet(false); if (!e.target.closest("#mbar")) { e.stopPropagation(); e.preventDefault(); } } immArm(); }, true);
     view.addEventListener("scroll", () => { if (!IMM.on) immArm(); }, { passive: true });
   }
   if (!IMM.armed) { clearTimeout(IMM.t); immSet(false); } else immArm();
@@ -452,6 +572,7 @@ function vHome() {
   if (lp) { const hero = $(".hero", view); if (hero) { const d = document.createElement("div"); d.className = "pg-hero";
     d.innerHTML = `<button class="btn light" id="contPage">📄 ${Math.min(604, lp + 1)}-sahifadan davom</button><span>Bugun: ${todayPages()}/${S.pageGoal || 10} sahifa</span>`;
     hero.appendChild(d); $("#contPage").onclick = () => openPage(Math.min(604, lp + 1)); } }
+  const sc = $("#streakCard"); if (sc) sc.onclick = statsSheet;
   const st = $("#startBtn"); if (st) st.onclick = () => { goTab("learn"); push(vAlphabet); };
   $$(".chip[data-f]").forEach(b => b.onclick = () => { listFilter = b.dataset.f; render(view.scrollTop); });
   const q = $("#q");
@@ -530,6 +651,7 @@ function mergeApi(local, api, wantLang) {
   return langUsed;
 }
 function vSura(s, gotoA) {
+  if (S.theme === "qmushaf") { const a = gotoA || 1; stack[stack.length - 1] = { fn: vMushaf, args: [pageOf(s, a), s, a] }; vMushaf(pageOf(s, a), s, a); return; }
   if (S.pageMode !== false) { const a = gotoA || 1; stack[stack.length - 1] = { fn: vPage, args: [pageOf(s, a), s, a] }; vPage(pageOf(s, a), s, a); return; }
   const info = SURAS[s - 1];
   setTitle(`${s}. ${info[0]}`, true, { icon: "Aa", fn: () => readerSettings(s) },
@@ -612,6 +734,7 @@ function tajWords(str) {
 
 // Yozuv uslublari (xattotlik): matn manbai va shrift
 const MUSHAFS = [
+  ["kfgqpc", "KFGQPC Hafs (Usmoniy)", "Shoh Fahd majmuasining rasmiy \"Uthmanic Script HAFS\" shrifti"],
   ["madina", "Madina mushafi (yangi, 1441-h)", "Shoh Fahd majmuasi bosmasi uslubi, Usmoniy rasm"],
   ["oldmadina", "Madina mushafi (eski, 1405-h)", "Avvalgi Madina bosmasining xati"],
   ["indopak", "Qozon / Hind-Pok uslubi", "Qozon, Buxoro va Hind bosmalariga xos yozuv: madd harflarida sukun, to'liq harakatlar"],
@@ -656,6 +779,7 @@ function streak() {
 }
 function syncNative() {
   if (!NATIVE || !Native.syncDue) return;
+  try { if (Native.syncTime) { const d = new Date(); d.setDate(d.getDate() - 1); Native.syncTime(dayKey(d), Math.round((readTime()[dayKey(d)] || 0) / 60), dayKey(), Math.round(todaySec() / 60)); } } catch (e) {}
   try { if (Native.syncRead) { const rd = readDays(); Native.syncRead(rd[rd.length - 1] || "", readStreak(), +S.pageGoal || 10, dayKey() + ":" + todayPages()); } } catch (e) {}
   try { const all = store.get("vocab", {}); Native.syncDue(Object.values(all).map(c => c.due).join(","), dayKey() + ":" + todayDone(), +S.goal || 10); } catch (e) {}
 }
@@ -990,13 +1114,15 @@ function ayahHtml0(s, v) {
 const THEMES = [
   ["light", "Zumrad", "#F6F4EE", "#0E5C48", "#0E5C48"],
   ["sepia", "Qum (sepiya)", "#f3e9d2", "#6b4423", "#7a4b25"],
-  ["dark", "Tungi osmon", "#0d1422", "#0b1120", "#d4b25a"]
+  ["dark", "Tungi osmon", "#0d1422", "#0b1120", "#d4b25a"],
+  ["qmushaf", "Mushaf (faqat o'qish)", "#fbf6ea", "#5c4a36", "#2b2118"]
 ];
 function themePicker() {
   return `<div class="tpick">` + THEMES.map(t => `<button data-th="${t[0]}" class="${S.theme === t[0] ? "on" : ""}"><div class="tp-prev" style="background:${t[2]}"><i style="background:${t[3]}"></i><span style="color:${t[4]}">قُرْآن</span></div><b>${t[1]}</b></button>`).join("") + `</div>`;
 }
 function bindThemePicker(root) {
-  $$("[data-th]", root).forEach(x => x.onclick = () => { S.theme = x.dataset.th; save(); applyTheme(); $$("[data-th]", root).forEach(y => y.classList.toggle("on", y === x)); });
+  $$("[data-th]", root).forEach(x => x.onclick = () => { const was = S.theme; S.theme = x.dataset.th; save(); applyTheme();
+    const tp = stack[stack.length - 1]; if ((was === "qmushaf") !== (S.theme === "qmushaf") && tp && (tp.fn === vSura || tp.fn === vPage || tp.fn === vMushaf)) { const pp = tp.fn === vMushaf && M ? [M.p, M.s, M.a] : null; closeSheet(); if (pp) stack[stack.length - 1] = { fn: vPage, args: pp }; render(0); } $$("[data-th]", root).forEach(y => y.classList.toggle("on", y === x)); });
 }
 function mushafPicker() {
   return `<div class="mpick">` + MUSHAFS.map(m => `<button data-ms="${m[0]}" class="${S.mushaf === m[0] ? "on" : ""}"><span class="mp-ar ms-${m[0]}">بِسْمِ ٱللَّهِ</span><b>${m[1]}</b><small>${m[2]}</small></button>`).join("") +
@@ -1037,6 +1163,7 @@ function bindReader(rd, s) {
   rd.onclick = (e) => {
     const btn = e.target.closest("[data-act]");
     const ay = e.target.closest("[data-n]");
+    LAST_AY = ay;
     if (btn && ay) {
       const n = +ay.dataset.n, act = btn.dataset.act;
       if (act === "menu") ayahMenu(s, n);
@@ -1144,7 +1271,7 @@ function readerSettings(s) {
     };
     $("#gotoB").onclick = () => { const n = +$("#gotoN").value; if (n >= 1 && n <= SURAS[s - 1][2]) { closeSheet(); const el = $("#a" + n); if (el) view.scrollTop = el.offsetTop - 8; } };
     const obs = new MutationObserver(() => {
-      if ($("#sheet").classList.contains("hidden")) { obs.disconnect(); if (dirty) { const top = stack[stack.length - 1]; if (top.fn === vSura) { const a = topAyah(); top.args = [s, a]; } render(top.fn === vPage ? view.scrollTop : 0); } }
+      if ($("#sheet").classList.contains("hidden")) { obs.disconnect(); if (dirty) { const top = stack[stack.length - 1]; if (top.fn === vSura) { const a = topAyah(); top.args = [s, a]; } if (top.fn === vMushaf && M) top.args = [M.p, M.s, M.a]; render(top.fn === vPage ? view.scrollTop : 0); } }
     });
     obs.observe($("#sheet"), { attributes: true });
   });
@@ -1184,6 +1311,12 @@ function ayahUrls(s, a) {
 function markPlaying(a) {
   $$(".playing").forEach(x => x.classList.remove("playing"));
   const tp = stack[stack.length - 1];
+  if (tp && tp.fn === vMushaf && player.s) {
+    const me = $(`.mp-page .pg-seg[data-s="${player.s}"] [data-n="${a}"]`);
+    if (me) { me.classList.add("playing"); if (S.autoscroll) { const r = me.getBoundingClientRect(), vr = view.getBoundingClientRect(), bh = ($("#mbar") || { offsetHeight: 0 }).offsetHeight; if (r.top < vr.top + bh || r.bottom > vr.bottom) view.scrollTo({ top: view.scrollTop + r.top - vr.top - bh - 8, behavior: "smooth" }); } }
+    else if (S.autoscroll) { tp.args = [pageOf(player.s, a), player.s, a]; render(0); }
+    return;
+  }
   if (tp && tp.fn === vPage && player.s) {
     const p = pageOf(player.s, a);
     if (p !== tp.args[0]) { if (S.autoscroll) { tp.args = [p, player.s, a]; render(0); } return; }
@@ -1536,7 +1669,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.8<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.0<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();

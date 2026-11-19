@@ -354,3 +354,55 @@ button.pg-num { background: none; border: 0; color: var(--muted); font-size: 14p
 .streak .fire { font-size: 28px; }
 .streak b { display: block; font-size: 16px; color: var(--green); }
 .streak small { color: var(--muted); font-size: 12.5px; }
+/* KFGQPC Uthmanic Script HAFS — © King Fahd Glorious Quran Printing Complex (bepul tarqatish litsenziyasi, o'zgartirilmagan) */
+@font-face { font-family: "KFGQPCHafs"; src: url("kfgqpc-hafs.otf") format("opentype"); font-display: swap; }
+body.ms-kfgqpc { --arfont: "KFGQPCHafs", "AmiriQuran", serif; --arlh: 2.2; }
+.mp-ar.ms-kfgqpc { font-family: "KFGQPCHafs", "AmiriQuran", serif; }
+/* Lug'atdan qaytganda oyatni belgilash */
+.flash2 { animation: flash2 3.5s ease; border-radius: 8px; }
+@keyframes flash2 { 0%, 70% { background: #ffe58a; box-shadow: 0 0 0 3px #ffe58a; } 100% { background: transparent; box-shadow: none; } }
+body.dark .flash2 { animation-name: flash2d; }
+@keyframes flash2d { 0%, 70% { background: #5a4a14; box-shadow: 0 0 0 3px #5a4a14; } 100% { background: transparent; } }
+/* Statistika */
+.streak { cursor: pointer; }
+.streak > div { flex: 1; }
+.streak small { display: block; }
+.st-go { font-size: 20px; opacity: .7; }
+.st-sum { display: flex; gap: 8px; margin: 6px 0 14px; }
+.st-sum > div { flex: 1; text-align: center; background: var(--bg); border-radius: 12px; padding: 10px 4px; }
+.st-sum b { display: block; color: var(--green); font-size: 17px; }
+.st-sum small { color: var(--muted); font-size: 12px; }
+.st-bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; height: 170px; padding: 0 4px 6px; }
+.st-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; }
+.st-col i { display: block; width: 70%; background: var(--green); border-radius: 6px 6px 2px 2px; }
+.st-col small { color: var(--muted); font-size: 10.5px; }
+/* Mushaf mavzusi */
+body.qmushaf { --bg: #f7f0e1; --card: #fbf6ea; --text: #2b2118; --muted: #8a7a63; --line: #e3d7bf; --hl: #efe2c2; --green: #6b5232; --green2: #8a6d4a; --acc2: #6b5232; --wbw: #6b5232; --gold: #9a7b4f; --head: #5c4a36; --hero1: #5c4a36; --hero2: #8a6d4a; --btntext: #fff; --mehrob: none; }
+body.qmushaf main { background-image: none !important; }
+.mbar { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 6px; padding: 7px 8px; background: #d9ccb2; border-bottom: 1px solid #c9b996; }
+body:not(.qmushaf) .mbar { background: var(--card); border-color: var(--line); }
+.mbar button { border: 0; background: none; color: #3c2f22; font-size: 17px; padding: 6px 8px; border-radius: 10px; }
+body.dark .mbar button { color: var(--text); }
+.mbar .pill { background: rgba(92, 74, 54, .14); border: 1px solid rgba(92, 74, 54, .25); font-size: 14px; font-weight: 600; padding: 7px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mbar .pill:first-of-type { flex: 0 0 auto; }
+.mbar #mbSura { flex: 1; min-width: 0; }
+.mbar .pno { background: none; border-color: transparent; }
+body.imm .mbar { padding-top: calc(7px + env(safe-area-inset-top)); }
+.mnote { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); max-width: 86%; width: max-content; background: rgba(60, 47, 34, .9); color: #fff; font-size: 15px; font-weight: 700; padding: 10px 16px; border-radius: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.mnote.on { opacity: 1; }
+.mp-page { padding: 4px 6px 0; }
+.mp-text { --mlh: calc(var(--ar) * 1.05 * var(--arlh)); background: transparent !important; border: 0 !important; border-radius: 0 !important; margin: 0 4px !important; padding: 0 8px !important; line-height: var(--mlh);
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--mlh) - 1px), var(--line) calc(var(--mlh) - 1px), var(--line) var(--mlh)) !important; }
+.mp-text .end { color: var(--text); }
+.mp-text .end .cn { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25em; height: 1.25em; padding: 0 .12em; border: 1.5px solid var(--gold); border-radius: 50%; font-style: normal; font-size: .62em; line-height: 1; vertical-align: middle; margin: 0 .15em; color: var(--text); }
+.mp-sura { text-align: center; margin: 14px 10px 4px; padding: 10px 6px 8px; border: 2px solid var(--gold); border-radius: 14px; background: linear-gradient(180deg, rgba(154, 123, 79, .10), rgba(154, 123, 79, .02)); }
+.mp-sura span { display: block; font-family: var(--arfont); font-size: calc(var(--ar) * 1.25); color: var(--text); line-height: 1.6; }
+.mp-sura small { color: var(--muted); font-size: 12px; }
+.mp-bism { margin: 4px 0 2px; }
+.mp-pno { text-align: center; color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
+.mp-pno::before, .mp-pno::after { content: " ── "; color: var(--line); }
+.mp-slist { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow: auto; }
+.mp-slist button { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 9px 12px; font-size: 15px; }
+.mp-slist button b { min-width: 28px; color: var(--muted); }
+.mp-slist button span { margin-left: auto; font-family: "AmiriQuran", serif; font-size: 18px; color: var(--green); }
+.mp-slist button.on { border-color: var(--green); background: var(--hl); }
