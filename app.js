@@ -24,7 +24,7 @@ const store = {
 const DEF = {
   theme: "light", ar: 30, tr: 16, script: "lat", tr_key: "uzbek_sadiq", showTr: true,
   wbw: true, translit: false, wbwLang: "uz", wbwFallback: "ru",
-  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: true, remTime: "06:00", scrollSpeed: 3, immersive: true, pageGoal: 10, pageMode: true, vhl: true
+  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: true, remTime: "06:00", scrollSpeed: 3, immersive: true, pageGoal: 10, pageMode: true, vhl: true, autoUpdate: false
 };
 const S = Object.assign({}, DEF, store.get("settings", {}));
 const save = () => store.set("settings", S);
@@ -557,6 +557,48 @@ function immUpdate() {
   }
   if (!IMM.armed) { clearTimeout(IMM.t); immSet(false); } else immArm();
 }
+
+// ---------- Yangi versiya: foydalanuvchidan so'rab yangilash ----------
+const UPD_BASE = "https://azizrixsiyev.github.io/quron/";
+function getVersionInfo() {
+  const u = (NATIVE ? UPD_BASE : "") + "version.json?t=" + Date.now();
+  return (NATIVE ? nget(u, false) : fetch(u, { cache: "no-store" }).then(r => { if (!r.ok) throw 0; return r.text(); })).then(t => JSON.parse(t));
+}
+function updatePrompt(info, apply, canAuto) {
+  const notes = (info && info.notes || []).map(x => `<li>${esc(x)}</li>`).join("");
+  openSheet(`<h3>🆕 Yangi versiya chiqdi${info && info.name ? ": v" + esc(info.name) : ""}</h3>
+    ${notes ? `<div class="hint" style="margin:0 0 6px">Nimalar yangi:</div><ul class="upd-notes">${notes}</ul>` : `<div class="hint">Ilovaning yangilangan versiyasi tayyor.</div>`}
+    ${canAuto ? `<label class="upd-auto"><input type="checkbox" id="updAuto" ${S.autoUpdate ? "checked" : ""}> Keyingi safar so'ramasdan avtomatik yangilansin</label>` : `<div class="hint">Yangi APK yuklab olinadi, so'ng uni ochib o'rnatasiz. Lug'at, xatcho'plar va sozlamalaringiz saqlanib qoladi.</div>`}
+    <div class="playall" style="margin-top:14px"><button class="btn" id="updYes">${canAuto ? "Yangilash" : "⬇ Yuklab olish"}</button><button class="btn out" id="updNo">Keyinroq</button></div>`, b => {
+    const keepAuto = () => { const c = $("#updAuto", b); if (c) { S.autoUpdate = c.checked; save(); } };
+    $("#updYes", b).onclick = () => { keepAuto(); closeSheet(); toast("Yangilanmoqda..."); apply(); };
+    $("#updNo", b).onclick = () => { keepAuto(); closeSheet(); store.set("updSkip", { v: info && (info.apk || info.name), t: Date.now() }); };
+  });
+}
+function webUpdateReady() {
+  if (NATIVE || !window.__swNew) return;
+  if (S.autoUpdate) { window.__swApply(); return; }
+  const sk = store.get("updSkip", null);
+  getVersionInfo().catch(() => ({})).then(info => {
+    if (sk && sk.v && info.name === sk.v && Date.now() - sk.t < 6 * 3600 * 1000) return;
+    updatePrompt(info, () => window.__swApply(), true);
+  });
+}
+window.onSwUpdate = () => setTimeout(webUpdateReady, 1500);
+function nativeUpdateCheck(manual) {
+  if (!NATIVE || !Native.appVersion) return;
+  const last = store.get("updChecked", 0);
+  if (!manual && Date.now() - last < 12 * 3600 * 1000) return;
+  store.set("updChecked", Date.now());
+  getVersionInfo().then(info => {
+    const mine = Native.appVersion();
+    if (!info.apk || info.apk <= mine) { if (manual) toast("Sizda eng so'nggi versiya ✓"); return; }
+    const sk = store.get("updSkip", null);
+    if (!manual && sk && sk.v === info.apk && Date.now() - sk.t < 3 * 24 * 3600 * 1000) return;
+    updatePrompt(info, () => Native.openUrl(UPD_BASE + (info.apkUrl || "quron.apk")), false);
+  }).catch(() => { if (manual) toast("Tekshirib bo'lmadi — internetni tekshiring"); });
+}
+setTimeout(() => { if (NATIVE) nativeUpdateCheck(false); else if (window.__swNew) webUpdateReady(); }, 4000);
 
 // ---------- Bosh sahifa (suralar ro'yxati) ----------
 let listFilter = "all", listQuery = "";
@@ -1770,6 +1812,9 @@ function vSettings() {
     <div class="set"><div class="toggle"><label>Kunlik eslatma</label><div class="sw ${S.remOn ? "on" : ""}" id="remSw"></div></div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span>Vaqti:</span><input type="time" id="remT" class="search" value="${esc(S.remTime)}" style="width:130px"><button class="btn out" id="remTest">Sinab ko'rish</button></div>
       <div class="hint">Har kuni belgilangan vaqtda o'qish ketma-ketligingiz (🔥 necha kun), bugungi sahifa maqsadi va bitta hadis bilan eslatma keladi.</div></div>
+    <div class="set"><label>Yangilanishlar</label>
+      <div class="hint" style="margin:0 0 8px">Yangi versiya chiqsa, ilova sizdan "Yangilaymi?" deb so'raydi.</div>
+      ${NATIVE ? `<button class="btn out" id="updChk" style="width:100%">🔄 Yangi versiyani tekshirish</button>` : `<div class="toggle"><label>So'ramasdan avtomatik yangilansin</label><div class="sw ${S.autoUpdate ? "on" : ""}" data-t="autoUpdate"></div></div>`}</div>
     <div class="set"><label>Zaxira nusxa</label><div class="hint" style="margin:0 0 8px">Lug'at, eslatmalar, saqlangan oyatlar, kunlik natijalar va sozlamalar bitta faylga saqlanadi. Uni Telegram yoki Google Drive'ga yuborib qo'ying — telefon almashtirsangiz tiklaysiz.</div>
       <div style="display:flex;gap:8px"><button class="btn" id="bkSave" style="flex:1">💾 Saqlash</button><button class="btn out" id="bkLoad" style="flex:1">📂 Tiklash</button></div></div></div>
   <div class="card">
@@ -1778,7 +1823,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.3<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Sarf (morfologiya): Quranic Arabic Corpus (corpus.quran.com, GPL) · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.4<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Sarf (morfologiya): Quranic Arabic Corpus (corpus.quran.com, GPL) · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();
@@ -1803,6 +1848,7 @@ function vSettings() {
     ["#dlAll", "#clr"].forEach(q => { const e = $(q); const c = e && e.closest(".set"); if (c) c.remove(); });
   }
   if ($("#bkSave")) $("#bkSave").onclick = doBackup;
+  const uc = $("#updChk"); if (uc) uc.onclick = () => nativeUpdateCheck(true);
   $("#bkLoad").onclick = doRestore;
 }
 

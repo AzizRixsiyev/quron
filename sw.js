@@ -1,8 +1,9 @@
-const C = "qso-web-v3.3";
+const C = "qso-web-v3.4";
 const FILES = ["./", "index.html", "style.css", "app.js", "data.js", "uzdict.js", "sarf.js", "qdata.js", "tajweed.js", "indopak.js", "morph.js",
   "tr_uzbek_sadiq.js", "tr_uzbek_mansour.js", "tr_uzbek_rwwad.js", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png",
   "amiri-quran.woff2", "kfgqpc-hafs.otf", "madina-qmh.woff2", "oldmadina-qmh.woff2", "indopak-qmh.woff2"];
-self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting())); });
+self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" }))))); });
+self.addEventListener("message", e => { if (e.data === "skipWaiting") self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C && k !== "qso-audio").map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);

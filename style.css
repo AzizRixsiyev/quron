@@ -454,3 +454,6 @@ body.dark .sf-seg.pre .sf-ar { color: #6fb6ff; } body.dark .sf-seg.suf .sf-ar { 
 .sf-r { font-size: calc(var(--tr) * .72); color: var(--muted); margin-top: 3px; direction: ltr; }
 .sf-r b { font-family: var(--arfont); font-size: 1.3em; color: var(--green); font-weight: 400; }
 .sf-r b { display: block; white-space: pre; word-spacing: .25em; }
+.upd-notes { margin: 0 0 8px 18px; padding: 0; line-height: 1.6; font-size: 15px; }
+.upd-auto { display: flex; gap: 10px; align-items: center; font-size: 14.5px; margin-top: 8px; }
+.upd-auto input { width: 20px; height: 20px; }

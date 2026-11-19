@@ -48,9 +48,16 @@
 <script src="morph.js"></script>
 <script src="app.js"></script>
 <script>try { if ("serviceWorker" in navigator && location.protocol === "https:") {
-  var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
-  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function (r) { r.update(); }).catch(function(){});
-  navigator.serviceWorker.addEventListener("controllerchange", function () { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
+  var reloaded = false;
+  window.__swApply = function () { var w = window.__swNew; if (w) { window.__swUserOk = true; w.postMessage("skipWaiting"); } };
+  var announce = function (w) { window.__swNew = w; if (window.onSwUpdate) window.onSwUpdate(); };
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function (r) {
+    if (r.waiting && navigator.serviceWorker.controller) announce(r.waiting);
+    r.addEventListener("updatefound", function () { var w = r.installing; if (!w) return;
+      w.addEventListener("statechange", function () { if (w.state === "installed" && navigator.serviceWorker.controller) announce(w); }); });
+    r.update(); setInterval(function () { r.update(); }, 30 * 60 * 1000);
+  }).catch(function(){});
+  navigator.serviceWorker.addEventListener("controllerchange", function () { if (window.__swUserOk && !reloaded) { reloaded = true; location.reload(); } });
 } } catch (e) {}</script>
 </body>
 </html>
