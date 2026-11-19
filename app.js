@@ -24,7 +24,7 @@ const store = {
 const DEF = {
   theme: "light", ar: 30, tr: 16, script: "lat", tr_key: "uzbek_sadiq", showTr: true,
   wbw: true, translit: false, wbwLang: "uz", wbwFallback: "ru",
-  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: false, remTime: "20:00", scrollSpeed: 3, immersive: true, pageGoal: 10
+  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: true, remTime: "06:00", scrollSpeed: 3, immersive: true, pageGoal: 10, pageMode: true
 };
 const S = Object.assign({}, DEF, store.get("settings", {}));
 const save = () => store.set("settings", S);
@@ -164,7 +164,7 @@ function push(fn, args) {
 }
 function render(scroll) {
   const top = stack[stack.length - 1];
-  if (typeof AS !== "undefined" && AS.on && top.fn !== vSura) asStop();
+  if (typeof AS !== "undefined" && AS.on && top.fn !== vSura && top.fn !== vPage) asStop();
   view.innerHTML = ""; view.ontouchstart = null; view.ontouchend = null;
   top.fn.apply(null, top.args);
   view.scrollTop = scroll || 0;
@@ -254,30 +254,55 @@ function pageOf(s, a) { let lo = 0, hi = 603; while (lo < hi) { const m = (lo + 
 function pageStartAt(s, a) { const p = pageOf(s, a); return PAGES[p - 1][0] === s && PAGES[p - 1][1] === a ? p : 0; }
 function pageEnd(p) { if (p >= 604) return [114, 6]; const [s, a] = PAGES[p]; return a > 1 ? [s, a - 1] : [s - 1, SURAS[s - 2][2]]; }
 function pageSegments(p) { const [s1, a1] = PAGES[p - 1], [s2, a2] = pageEnd(p), out = []; for (let s = s1; s <= s2; s++) out.push([s, s === s1 ? a1 : 1, s === s2 ? a2 : SURAS[s - 1][2]]); return out; }
+const HIZB = [[1,1],[2,75],[2,142],[2,203],[2,253],[3,15],[3,93],[3,171],[4,24],[4,88],[4,148],[5,27],[5,82],[6,36],[6,111],[7,1],[7,88],[7,171],[8,41],[9,34],[9,93],[10,26],[11,6],[11,84],[12,53],[13,19],[15,1],[16,51],[17,1],[17,99],[18,75],[20,1],[21,1],[22,1],[23,1],[24,21],[25,21],[26,111],[27,56],[28,51],[29,46],[31,22],[33,31],[34,24],[36,28],[37,145],[39,32],[40,41],[41,47],[43,24],[46,1],[48,18],[51,31],[55,1],[58,1],[62,1],[67,1],[72,1],[78,1],[87,1]];
+function hizbOf(s, a) { let h = 1; for (let i = 0; i < 60; i++) { const [hs, ha] = HIZB[i]; if (s > hs || (s === hs && a >= ha)) h = i + 1; } return h; }
 const dayPages = () => store.get("dayPages", {});
 function markPageRead(p) {
-  store.set("lastPage", p);
+  store.set("lastPage", p); markRead();
   const d = dayPages(), k = dayKey(); const arr = d[k] || [];
   if (!arr.includes(p)) { arr.push(p); d[k] = arr; const keys = Object.keys(d).sort(); while (keys.length > 60) delete d[keys.shift()]; store.set("dayPages", d); }
   return arr.length;
 }
 const todayPages = () => (dayPages()[dayKey()] || []).length;
+// O'qish ketma-ketligi (har kuni Qur'on o'qilgan kunlar)
+const readDays = () => store.get("readDays", []);
+function readStreak() {
+  const set = new Set(readDays()); let n = 0; const d = new Date();
+  if (!set.has(dayKey(d))) d.setDate(d.getDate() - 1);
+  while (set.has(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function markRead() {
+  const k = dayKey(), arr = readDays();
+  if (arr.includes(k)) return;
+  arr.push(k); while (arr.length > 400) arr.shift(); store.set("readDays", arr);
+  const n = readStreak();
+  if (n >= 2) setTimeout(() => toast(n === 7 || n === 30 || n === 40 || n === 100 || n === 365 ? `🎉 ${n} kun ketma-ket! Alloh qabul qilsin, davom eting!` : `🔥 ${n} kun ketma-ket Qur'on o'qiyapsiz. Barakalla!`), 900);
+  syncNative();
+}
+function streakHtml() {
+  const n = readStreak(), t = readDays().includes(dayKey());
+  return `<div class="streak"><span class="fire">${n ? "🔥" : "🌱"}</span><div><b>${n ? n + " kun ketma-ket" : "Bugundan boshlang"}</b><small>${t ? "Bugun o'qildi ✓" : "Bugun hali o'qilmadi"} · ${todayPages()}/${S.pageGoal || 10} sahifa</small></div></div>`;
+}
 const curCache = {};
 function curFor(s) {
   if (!curCache[s]) curCache[s] = { s, verses: localVerses(s), tr: {}, hasUz: true, lang: "en", apiLang: "english", trErr: false };
   return curCache[s];
 }
-function vPage(p) {
+function vPage(p, fs, fa) {
   p = Math.max(1, Math.min(604, p | 0));
   const segs = pageSegments(p), [s1, a1] = PAGES[p - 1];
   const done = markPageRead(p), goal = S.pageGoal || 10;
-  setTitle(`${p}-sahifa`, true, { icon: "#", fn: pageJump },
+  setTitle(`${p}-sahifa`, true, { icon: "Aa", fn: () => readerSettings(s1) },
     { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); render(0); } });
-  view.innerHTML = `<div class="pg-top"><span>${esc(segs.map(x => SURAS[x[0] - 1][0]).join(" · "))}</span><span>${juzOf(s1, a1)}-pora</span><span class="${done >= goal ? "ok" : ""}">Bugun: ${done}/${goal} sahifa</span></div>
+  view.innerHTML = `<div class="pg-top"><span class="pg-info">${esc(segs.map(x => SURAS[x[0] - 1][0]).join(" · "))} · ${juzOf(s1, a1)}-pora · ${hizbOf(s1, a1)}-hizb · ${p}-sahifa</span><button class="pg-goal ${done >= goal ? "ok" : ""}" id="pgGoalBtn">Bugun: ${done}/${goal}</button></div>
     <div id="pgBody"><div class="loading"><div class="spinner"></div></div></div>
-    <div class="pg-nav"><button class="btn out" id="pgPrev" ${p <= 1 ? "disabled" : ""}>← ${p > 1 ? p - 1 : ""}</button><span class="pg-num">${p} / 604</span><button class="btn" id="pgNext" ${p >= 604 ? "disabled" : ""}>${p < 604 ? p + 1 : ""} →</button></div>`;
+    <div class="pg-nav"><button class="btn out" id="pgPrev" ${p <= 1 ? "disabled" : ""}>← ${p > 1 ? p - 1 : ""}</button><button class="pg-num" id="pgJump"># ${p} / 604</button><button class="btn out pg-play" id="pgPlay">▶</button><button class="btn out pg-play" id="pgAuto">⇣</button><button class="btn" id="pgNext" ${p >= 604 ? "disabled" : ""}>${p < 604 ? p + 1 : ""} →</button></div>`;
   const go = (d) => { const np = p + d; if (np < 1 || np > 604) return; stack[stack.length - 1].args = [np]; render(0); };
   $("#pgPrev").onclick = () => go(-1); $("#pgNext").onclick = () => go(1);
+  $("#pgJump").onclick = pageJump; $("#pgGoalBtn").onclick = pageJump;
+  $("#pgAuto").onclick = () => { if (AS.on) asStop(); else asStart(); };
+  $("#pgPlay").onclick = () => { if (player.s && player.playing) { stopPlayer(); return; } startPlayer(s1, a1); toast(`${SURAS[s1 - 1][0]}, ${a1}-oyatdan tinglanmoqda`); };
   const alive = () => stack.length && stack[stack.length - 1].fn === vPage && stack[stack.length - 1].args[0] === p;
   Promise.all(segs.map(x => getEnc(S.tr_key, x[0]).then(t => { curFor(x[0]).tr = t; }).catch(() => {}))).then(() => {
     if (!alive()) return;
@@ -292,6 +317,8 @@ function vPage(p) {
       return `<div class="pg-seg" data-s="${s}">${h}</div>`;
     }).join("");
     $$(".pg-seg", body).forEach(el => { const s = +el.dataset.s; el.addEventListener("click", () => { cur = curFor(s); }, true); bindReader(el, s); });
+    if (fs && fa) { const el = $(`.pg-seg[data-s="${fs}"] [data-n="${fa}"]`, body); if (el && !(fs === s1 && fa === a1)) { view.scrollTop = el.offsetTop - 8; el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1800); } }
+    if (player.s && player.a) markPlaying(player.a);
   });
   // Barmoq bilan varaqlash: o'ngga surish — keyingi sahifa (mushafdagidek), chapga — oldingi
   let x0 = null, y0 = 0;
@@ -303,9 +330,12 @@ function pageJump() {
   const lp = store.get("lastPage", 1);
   openSheet(`<h3>Sahifaga o'tish</h3><input class="search" id="pjN" type="number" inputmode="numeric" min="1" max="604" placeholder="1 – 604" value="${lp}">
     <div class="playall"><button class="btn" id="pjGo">O'tish</button></div>
-    <div class="set" style="margin-top:12px"><label>Kunlik maqsad (sahifa)</label><div class="seg" id="pgGoal">${[2, 5, 10, 20, 30].map(n => `<button data-v="${n}" class="${(S.pageGoal || 10) === n ? "on" : ""}">${n}</button>`).join("")}</div></div>`, (b) => {
+    <div class="set toggle" style="margin-top:12px"><label>Sahifalab o'qish (o'chirilsa — sura uzluksiz ko'rsatiladi)</label><div class="sw ${S.pageMode !== false ? "on" : ""}" id="pmSw"></div></div>
+    <div class="set" style="margin-top:4px"><label>Kunlik maqsad (sahifa)</label><div class="seg" id="pgGoal">${[2, 5, 10, 20, 30].map(n => `<button data-v="${n}" class="${(S.pageGoal || 10) === n ? "on" : ""}">${n}</button>`).join("")}</div></div>`, (b) => {
     const go = () => { const n = +$("#pjN", b).value; if (n >= 1 && n <= 604) { closeSheet(); openPage(n); } else toast("1 dan 604 gacha raqam kiriting"); };
     $("#pjGo", b).onclick = go; $("#pjN", b).onkeydown = e => { if (e.key === "Enter") go(); };
+    $("#pmSw", b).onclick = () => { S.pageMode = S.pageMode === false; save(); $("#pmSw", b).classList.toggle("on", S.pageMode); toast(S.pageMode ? "Sahifalab o'qish yoqildi" : "Sura uzluksiz ko'rsatiladi");
+      const top = stack[stack.length - 1]; if (!S.pageMode && top.fn === vPage) { const [ps, pa] = PAGES[top.args[0] - 1]; closeSheet(); stack[stack.length - 1] = { fn: vSura, args: [ps, pa] }; render(0); } };
     $$("#pgGoal button", b).forEach(x => x.onclick = () => { S.pageGoal = +x.dataset.v; save(); $$("#pgGoal button", b).forEach(y => y.classList.toggle("on", y === x)); });
   });
 }
@@ -367,6 +397,8 @@ function asTick(t) {
   AS.pos += AS_SPEEDS[(S.scrollSpeed || 3) - 1] * dt;
   view.scrollTop = Math.round(AS.pos);
   if (view.scrollTop + view.clientHeight >= view.scrollHeight - 2) {
+    const tp = stack[stack.length - 1], pn = $("#pgNext");
+    if (tp && tp.fn === vPage && pn && !pn.disabled) { AS.paused = true; setTimeout(() => { if (!AS.on) return; tp.args = [tp.args[0] + 1]; render(0); AS.paused = false; AS.last = 0; AS.pos = 0; asUpd(); }, 1500); return; }
     const nx = $("#nextSura");
     if (nx) { AS.paused = true; asUpd(); toast("Sura tugadi. «Keyingi sura» tugmasini bosing yoki ▶ bilan davom eting."); }
     else { asStop(); }
@@ -407,6 +439,7 @@ function vHome() {
     h += `<div class="hero"><h3>Assalomu alaykum!</h3><div class="big">Qur'onni o'qishni va tushunishni o'rganing</div>
       <button class="btn light" id="startBtn">Alifbodan boshlash →</button></div>`;
   }
+  h += streakHtml();
   h += `<div class="pad" style="padding-bottom:4px"><input class="search" id="q" placeholder="Sura nomi yoki raqami..." value="${esc(listQuery)}"></div>
     <div class="chips"><button class="chip ${listFilter === "all" ? "on" : ""}" data-f="all">Barcha suralar</button>
     <button class="chip ${listFilter === "juz" ? "on" : ""}" data-f="juz">30 pora (juz)</button>
@@ -414,7 +447,7 @@ function vHome() {
     <button class="chip ${listFilter === "short" ? "on" : ""}" data-f="short">Yod olish uchun qisqa suralar</button></div>
     <div class="card" id="list"></div>`;
   view.innerHTML = h;
-  const c = $("#contBtn"); if (c) c.onclick = () => openSura(last.s, last.a);
+  const c = $("#contBtn"); if (c) c.onclick = () => (S.pageMode !== false && store.get("lastPage", 0)) ? openPage(store.get("lastPage", 1)) : openSura(last.s, last.a);
   const lp = store.get("lastPage", 0);
   if (lp) { const hero = $(".hero", view); if (hero) { const d = document.createElement("div"); d.className = "pg-hero";
     d.innerHTML = `<button class="btn light" id="contPage">📄 ${Math.min(604, lp + 1)}-sahifadan davom</button><span>Bugun: ${todayPages()}/${S.pageGoal || 10} sahifa</span>`;
@@ -497,6 +530,7 @@ function mergeApi(local, api, wantLang) {
   return langUsed;
 }
 function vSura(s, gotoA) {
+  if (S.pageMode !== false) { const a = gotoA || 1; stack[stack.length - 1] = { fn: vPage, args: [pageOf(s, a), s, a] }; vPage(pageOf(s, a), s, a); return; }
   const info = SURAS[s - 1];
   setTitle(`${s}. ${info[0]}`, true, { icon: "Aa", fn: () => readerSettings(s) },
     { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); const a = topAyah(); stack[stack.length - 1].args = [s, a]; render(0); } });
@@ -505,6 +539,7 @@ function vSura(s, gotoA) {
     <div class="playall"><button class="btn" id="playAll">▶ Butun surani tinglash</button><button class="btn out" id="playFrom">Davomidan</button></div>
     <div class="playall"><button class="btn out" id="autoRead">⇣ Avto o'qish</button></div></div>
     <div id="rd"><div class="loading"><div class="spinner"></div>Yuklanmoqda...</div></div>`;
+  markRead();
   const uzCov = uzCoverage(s), hasUz = S.wbwLang === "uz" && uzCov >= 0.999;
   const lang = S.wbwLang === "uz" ? S.wbwFallback : S.wbwLang;
   const verses = localVerses(s);
@@ -621,6 +656,7 @@ function streak() {
 }
 function syncNative() {
   if (!NATIVE || !Native.syncDue) return;
+  try { if (Native.syncRead) { const rd = readDays(); Native.syncRead(rd[rd.length - 1] || "", readStreak(), +S.pageGoal || 10, dayKey() + ":" + todayPages()); } } catch (e) {}
   try { const all = store.get("vocab", {}); Native.syncDue(Object.values(all).map(c => c.due).join(","), dayKey() + ":" + todayDone(), +S.goal || 10); } catch (e) {}
 }
 function goalHtml() {
@@ -886,7 +922,7 @@ function applyReminder() {
   const [h, m] = String(S.remTime || "20:00").split(":").map(Number);
   Native.setReminder(!!S.remOn, h || 0, m || 0); syncNative();
 }
-window.openTab = (t) => { goTab(t); };
+window.openTab = (t) => { if (t === "continue") { const lp = store.get("lastPage", 0); goTab("quran"); openPage(lp ? Math.min(604, lp + 1) : 1); return; } goTab(t); };
 
 function vReview(queue, extra) {
   setTitle("Takrorlash", true);
@@ -1083,6 +1119,7 @@ function readerSettings(s) {
     <div class="set"><label>Mavzu</label>${themePicker()}</div>
     <div class="set"><label>Yozuv uslubi (xat)</label>${mushafPicker()}</div>
     ${tg("arOnly", "Faqat arabcha matn (mushaf ko'rinishi)")}
+    ${tg("pageMode", "Sahifalab o'qish (Madina mushafi sahifalari)")}
     ${tg("tajweed", "Rangli tajvid")}<div class="set" style="padding-top:0"><button class="btn out" id="tjLeg">Tajvid ranglari nimani bildiradi?</button></div>
     ${tg("wbw", "So'zma-so'z tarjima")}${tg("translit", "Talaffuz (lotincha o'qilishi)")}${tg("showTr", "Oyat tarjimasi")}
     <div class="set"><label>Arabcha harf o'lchami: <span id="arv">${S.ar}</span></label><input type="range" min="22" max="50" value="${S.ar}" id="arR"></div>
@@ -1107,7 +1144,7 @@ function readerSettings(s) {
     };
     $("#gotoB").onclick = () => { const n = +$("#gotoN").value; if (n >= 1 && n <= SURAS[s - 1][2]) { closeSheet(); const el = $("#a" + n); if (el) view.scrollTop = el.offsetTop - 8; } };
     const obs = new MutationObserver(() => {
-      if ($("#sheet").classList.contains("hidden")) { obs.disconnect(); if (dirty) { const a = topAyah(); stack[stack.length - 1].args = [s, a]; render(0); } }
+      if ($("#sheet").classList.contains("hidden")) { obs.disconnect(); if (dirty) { const top = stack[stack.length - 1]; if (top.fn === vSura) { const a = topAyah(); top.args = [s, a]; } render(top.fn === vPage ? view.scrollTop : 0); } }
     });
     obs.observe($("#sheet"), { attributes: true });
   });
@@ -1124,6 +1161,7 @@ view.addEventListener("scroll", () => {
   scrollT = setTimeout(() => {
     const top = stack[stack.length - 1];
     if (top && top.fn === vSura && $(".ayah, .ma")) store.set("last", { s: top.args[0], a: topAyah() });
+    else if (top && top.fn === vPage) { const [ps, pa] = PAGES[top.args[0] - 1]; store.set("last", { s: ps, a: pa }); }
   }, 400);
 });
 
@@ -1145,6 +1183,14 @@ function ayahUrls(s, a) {
 }
 function markPlaying(a) {
   $$(".playing").forEach(x => x.classList.remove("playing"));
+  const tp = stack[stack.length - 1];
+  if (tp && tp.fn === vPage && player.s) {
+    const p = pageOf(player.s, a);
+    if (p !== tp.args[0]) { if (S.autoscroll) { tp.args = [p, player.s, a]; render(0); } return; }
+    const pe = $(`.pg-seg[data-s="${player.s}"] [data-n="${a}"]`);
+    if (pe) { pe.classList.add("playing"); if (S.autoscroll) { const r = pe.getBoundingClientRect(), vr = view.getBoundingClientRect(); if (r.top < vr.top || r.bottom > vr.bottom) view.scrollTo({ top: pe.offsetTop - 8, behavior: "smooth" }); } }
+    return;
+  }
   const el = $("#a" + a);
   const top = stack[stack.length - 1];
   if (el && top && top.fn === vSura && top.args[0] === player.s) {
@@ -1481,7 +1527,7 @@ function vSettings() {
     <div class="set"><label>Kunlik maqsad (takrorlangan so'zlar)</label>${seg("goal", [[5, "5"], [10, "10"], [20, "20"], [30, "30"], [50, "50"]])}</div>
     <div class="set"><div class="toggle"><label>Kunlik eslatma</label><div class="sw ${S.remOn ? "on" : ""}" id="remSw"></div></div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span>Vaqti:</span><input type="time" id="remT" class="search" value="${esc(S.remTime)}" style="width:130px"><button class="btn out" id="remTest">Sinab ko'rish</button></div>
-      <div class="hint">Belgilangan vaqtda "Bugun N ta so'z takrorlash kerak" degan bildirishnoma keladi.</div></div>
+      <div class="hint">Har kuni belgilangan vaqtda o'qish ketma-ketligingiz (🔥 necha kun), bugungi sahifa maqsadi va bitta hadis bilan eslatma keladi.</div></div>
     <div class="set"><label>Zaxira nusxa</label><div class="hint" style="margin:0 0 8px">Lug'at, eslatmalar, saqlangan oyatlar, kunlik natijalar va sozlamalar bitta faylga saqlanadi. Uni Telegram yoki Google Drive'ga yuborib qo'ying — telefon almashtirsangiz tiklaysiz.</div>
       <div style="display:flex;gap:8px"><button class="btn" id="bkSave" style="flex:1">💾 Saqlash</button><button class="btn out" id="bkLoad" style="flex:1">📂 Tiklash</button></div></div></div>
   <div class="card">
@@ -1490,7 +1536,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.6<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.8<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();
@@ -1507,7 +1553,13 @@ function vSettings() {
   $("#remSw").onclick = () => { S.remOn = !S.remOn; $("#remSw").classList.toggle("on", S.remOn); save(); applyReminder(); toast(S.remOn ? `Eslatma yoqildi: har kuni ${S.remTime}` : "Eslatma o'chirildi"); };
   $("#remT").onchange = (e) => { S.remTime = e.target.value || "20:00"; save(); applyReminder(); };
   $("#remTest").onclick = () => { syncNative(); if (NATIVE && Native.testReminder) Native.testReminder(); else toast("Faqat telefonda"); };
-  if (!NATIVE) ["#remSw", "#dlAll", "#clr"].forEach(q => { const e = $(q); const c = e && e.closest(".set"); if (c) c.remove(); });
+  if (!NATIVE) {
+    const rs = $("#remSw"), rc = rs && rs.closest(".set");
+    if (rc) rc.outerHTML = `<div class="set"><label>Kunlik eslatma (06:00)</label>
+      <div class="hint" style="margin:0 0 8px">iPhone'da web ilova o'zi bildirishnoma yubora olmaydi. Shuning uchun eslatmani telefon <b>Kalendari</b>ga qo'shamiz: har kuni soat 06:00 da "Qur'on o'qish vaqti" deb eslatadi. Ilovani ochsangiz, 🔥 ketma-ketligingiz ko'rinadi.</div>
+      <a class="btn" style="display:block;text-align:center;text-decoration:none" href="eslatma.ics">📅 Kalendarga eslatma qo'shish</a></div>`;
+    ["#dlAll", "#clr"].forEach(q => { const e = $(q); const c = e && e.closest(".set"); if (c) c.remove(); });
+  }
   if ($("#bkSave")) $("#bkSave").onclick = doBackup;
   $("#bkLoad").onclick = doRestore;
 }
@@ -1563,5 +1615,6 @@ applyTheme();
 goTab("quran");
 updVocabBadge();
 setInterval(updVocabBadge, 60000);
+if (!store.get("mig_rem6", false)) { S.remOn = true; S.remTime = "06:00"; save(); store.set("mig_rem6", true); }
 syncNative(); if (S.remOn) applyReminder();
 })();

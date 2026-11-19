@@ -340,3 +340,17 @@ body.dark .pg-sura { color: var(--acc2); }
 .pg-b { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 9px 0; font-size: 14px; }
 .pg-b.on { background: var(--green); color: var(--btntext); border-color: var(--green); }
 .pg-hero { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; opacity: .95; }
+.pg-top { align-items: center; }
+.pg-info { flex: 1; text-align: center; }
+.pg-goal { border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 14px; padding: 3px 10px; font-size: 12px; }
+.pg-goal.ok { color: var(--green); border-color: var(--green); font-weight: 700; }
+button.pg-num { background: none; border: 0; color: var(--muted); font-size: 14px; padding: 8px; }
+.pg-nav { flex-wrap: nowrap; gap: 6px; }
+.pg-nav .btn { min-width: 0; padding: 9px 12px; }
+.pg-nav .pg-play { padding: 9px 12px; }
+.flash { animation: flashbg 1.8s ease; border-radius: 8px; }
+@keyframes flashbg { 0%, 60% { background: var(--hl); } 100% { background: transparent; } }
+.streak { display: flex; align-items: center; gap: 12px; margin: 12px 14px 0; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.streak .fire { font-size: 28px; }
+.streak b { display: block; font-size: 16px; color: var(--green); }
+.streak small { color: var(--muted); font-size: 12.5px; }

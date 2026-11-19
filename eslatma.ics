@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Quron sozma-soz//UZ
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:quron-sozma-soz-daily-0600@azizrixsiyev.github.io
+DTSTAMP:20261119T000000Z
+DTSTART:20261120T010000Z
+DURATION:PT15M
+RRULE:FREQ=DAILY
+SUMMARY:📖 Qur'on o'qish vaqti
+DESCRIPTION:Bugun ham sahifalaringizni o'qing — 🔥 ketma-ketlikni uzmang!\n"Amallarning Allohga eng suyuklisi — oz bo'lsa ham\, doimiy bo'lganidir." (Buxoriy\, Muslim)\nhttps://azizrixsiyev.github.io/quron/
+URL:https://azizrixsiyev.github.io/quron/
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Qur'on o'qish vaqti
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+END:VCALENDAR

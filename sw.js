@@ -1,4 +1,4 @@
-const C = "qso-web-v2.6";
+const C = "qso-web-v2.8";
 const FILES = ["./", "index.html", "style.css", "app.js", "data.js", "uzdict.js", "qdata.js", "tajweed.js", "indopak.js", "morph.js",
   "tr_uzbek_sadiq.js", "tr_uzbek_mansour.js", "tr_uzbek_rwwad.js", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png",
   "amiri-quran.woff2", "madina-qmh.woff2", "oldmadina-qmh.woff2", "indopak-qmh.woff2"];
