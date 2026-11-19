@@ -149,10 +149,11 @@ function splitEnc(key, r) {
 const view = $("#view");
 let tab = "quran";
 let stack = [];
-function setTitle(t, back, action, action2) {
+function setTitle(t, back, action, action2, action3) {
   $("#title").textContent = t;
   $("#backBtn").classList.toggle("hidden", !back);
-  [[$("#topAction"), action], [$("#topAction2"), action2]].forEach(([a, ac]) => {
+  [[$("#topAction"), action], [$("#topAction2"), action2], [$("#topAction3"), action3]].forEach(([a, ac]) => {
+    if (!a) return;
     if (ac) { a.innerHTML = ac.icon; a.onclick = ac.fn; a.classList.remove("hidden"); a.classList.toggle("on", !!ac.on); }
     else a.classList.add("hidden");
   });
@@ -262,6 +263,18 @@ function pageEnd(p) { if (p >= 604) return [114, 6]; const [s, a] = PAGES[p]; re
 function pageSegments(p) { const [s1, a1] = PAGES[p - 1], [s2, a2] = pageEnd(p), out = []; for (let s = s1; s <= s2; s++) out.push([s, s === s1 ? a1 : 1, s === s2 ? a2 : SURAS[s - 1][2]]); return out; }
 const HIZB = [[1,1],[2,75],[2,142],[2,203],[2,253],[3,15],[3,93],[3,171],[4,24],[4,88],[4,148],[5,27],[5,82],[6,36],[6,111],[7,1],[7,88],[7,171],[8,41],[9,34],[9,93],[10,26],[11,6],[11,84],[12,53],[13,19],[15,1],[16,51],[17,1],[17,99],[18,75],[20,1],[21,1],[22,1],[23,1],[24,21],[25,21],[26,111],[27,56],[28,51],[29,46],[31,22],[33,31],[34,24],[36,28],[37,145],[39,32],[40,41],[41,47],[43,24],[46,1],[48,18],[51,31],[55,1],[58,1],[62,1],[67,1],[72,1],[78,1],[87,1]];
 function hizbOf(s, a) { let h = 1; for (let i = 0; i < 60; i++) { const [hs, ha] = HIZB[i]; if (s > hs || (s === hs && a >= ha)) h = i + 1; } return h; }
+// Sahifa xatcho'plari
+const pmarks = () => store.get("pageMarks", []);
+const isPMarked = p => pmarks().some(x => x.p === p);
+function togglePMark(p, btn) {
+  let l = pmarks(); const on = l.some(x => x.p === p);
+  if (on) l = l.filter(x => x.p !== p);
+  else { const [s, a] = PAGES[p - 1]; l.unshift({ p, s, a, d: Date.now() }); }
+  store.set("pageMarks", l);
+  if (btn) { btn.classList.toggle("on", !on); btn.innerHTML = !on ? "🔖" : "🏷"; }
+  toast(on ? `${p}-sahifa xatcho'pdan olindi` : `🔖 ${p}-sahifaga xatcho'p qo'yildi`);
+}
+const pmBtn = p => ({ icon: isPMarked(p) ? "🔖" : "🏷", on: isPMarked(p), fn: (e) => togglePMark(p, e && e.currentTarget) });
 const dayPages = () => store.get("dayPages", {});
 function markPageRead(p) {
   store.set("lastPage", p); markRead();
@@ -330,7 +343,7 @@ function vPage(p, fs, fa) {
   const segs = pageSegments(p), [s1, a1] = PAGES[p - 1];
   const done = markPageRead(p), goal = S.pageGoal || 10;
   setTitle(`${p}-sahifa`, true, { icon: "Aa", fn: () => readerSettings(s1) },
-    { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); render(0); } });
+    { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); render(0); } }, pmBtn(p));
   view.innerHTML = `<div class="pg-top"><span class="pg-info">${esc(segs.map(x => SURAS[x[0] - 1][0]).join(" · "))} · ${juzOf(s1, a1)}-pora · ${hizbOf(s1, a1)}-hizb · ${p}-sahifa</span><button class="pg-goal ${done >= goal ? "ok" : ""}" id="pgGoalBtn">Bugun: ${done}/${goal} · ⏱ <span id="rtNow">${fmtMin(todaySec())}</span></button></div>
     <div id="pgBody"><div class="loading"><div class="spinner"></div></div></div>
     <div class="pg-nav"><button class="btn out" id="pgPrev" ${p <= 1 ? "disabled" : ""}>← ${p > 1 ? p - 1 : ""}</button><button class="pg-num" id="pgJump"># ${p} / 604</button><button class="btn out pg-play" id="pgPlay">▶</button><button class="btn out pg-play" id="pgAuto">⇣</button><button class="btn" id="pgNext" ${p >= 604 ? "disabled" : ""}>${p < 604 ? p + 1 : ""} →</button></div>`;
@@ -429,11 +442,12 @@ function mushafUpdate(first) {
   M.p = p; M.s = s; M.a = a; M.j = j;
   const tp = stack[stack.length - 1]; if (tp && tp.fn === vMushaf) tp.args = [p, s, a];
   store.set("last", { s, a });
+  const t3 = $("#topAction3"); if (t3) { const on = isPMarked(p); t3.innerHTML = on ? "🔖" : "🏷"; t3.classList.toggle("on", on); }
   $("#mbJuz").textContent = `${j}-pora`; $("#mbPage").textContent = p; $("#mbSura").textContent = `${s}. ${SURAS[s - 1][0]}`;
 }
 function vMushaf(p, fs, fa) {
   p = Math.max(1, Math.min(604, p | 0));
-  setTitle("Mushaf", true, { icon: "Aa", fn: () => readerSettings(M ? M.s : PAGES[p - 1][0]) });
+  setTitle("Mushaf", true, { icon: "Aa", fn: () => readerSettings(M ? M.s : PAGES[p - 1][0]) }, null, { icon: "🏷", fn: (e) => togglePMark(M && M.p ? M.p : p, e && e.currentTarget) });
   M = { from: p, to: p - 1, p: 0, s: 0, a: 0, j: 0 };
   view.innerHTML = `<div id="mbar" class="mbar"><button id="mbPlay" title="Tinglash">▶</button><button id="mbJuz" class="pill"></button><button id="mbPage" class="pill pno"></button><button id="mbSura" class="pill"></button><button id="mbAuto" title="Avto o'qish">⇣</button><div id="mnote" class="mnote"></div></div><div id="mpages"></div>`;
   mushafAdd(p); mushafAdd(p + 1);
@@ -570,8 +584,9 @@ function vHome() {
   const c = $("#contBtn"); if (c) c.onclick = () => (S.pageMode !== false && store.get("lastPage", 0)) ? openPage(store.get("lastPage", 1)) : openSura(last.s, last.a);
   const lp = store.get("lastPage", 0);
   if (lp) { const hero = $(".hero", view); if (hero) { const d = document.createElement("div"); d.className = "pg-hero";
-    d.innerHTML = `<button class="btn light" id="contPage">📄 ${Math.min(604, lp + 1)}-sahifadan davom</button><span>Bugun: ${todayPages()}/${S.pageGoal || 10} sahifa</span>`;
-    hero.appendChild(d); $("#contPage").onclick = () => openPage(Math.min(604, lp + 1)); } }
+    const pm0 = pmarks()[0];
+    d.innerHTML = (pm0 ? `<button class="btn light" id="contMark">🔖 ${pm0.p}-sahifa</button>` : "") + `<button class="btn light" id="contPage">📄 ${Math.min(604, lp + 1)}-sahifadan davom</button><span>Bugun: ${todayPages()}/${S.pageGoal || 10} sahifa</span>`;
+    hero.appendChild(d); $("#contPage").onclick = () => openPage(Math.min(604, lp + 1)); const cm = $("#contMark"); if (cm) cm.onclick = () => openPage(pm0.p); } }
   const sc = $("#streakCard"); if (sc) sc.onclick = statsSheet;
   const st = $("#startBtn"); if (st) st.onclick = () => { goTab("learn"); push(vAlphabet); };
   $$(".chip[data-f]").forEach(b => b.onclick = () => { listFilter = b.dataset.f; render(view.scrollTop); });
@@ -859,6 +874,85 @@ function morphIndex() {
   return MIDX;
 }
 const rootPretty = r => String(r || "").split("-").join(" ");
+// ---------- Sarf tahlili: so'z qaysi qismlardan tuzilgan (Quranic Arabic Corpus morfologiyasi) ----------
+let SARF_P = null;
+function loadSarf() {
+  if (window.SARF) return Promise.resolve(window.SARF);
+  if (SARF_P) return SARF_P;
+  return SARF_P = new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "sarf.js"; sc.onload = () => window.SARF ? res(window.SARF) : rej(); sc.onerror = () => { SARF_P = null; rej(); }; document.head.appendChild(sc); });
+}
+const SF_PER = { "1S": ["men", "-im (mening)", "meni / menga"], "1P": ["biz", "-imiz (bizning)", "bizni / bizga"], "2MS": ["sen", "-ing (sening)", "seni / senga"], "2FS": ["sen (ayol)", "-ing (sening)", "seni / senga"],
+  "2MP": ["sizlar", "-ingiz (sizlarning)", "sizlarni / sizlarga"], "2FP": ["sizlar (ayollar)", "-ingiz (sizlarning)", "sizlarni / sizlarga"], "2D": ["ikkingiz", "-ingiz (ikkingizning)", "ikkingizni / ikkingizga"],
+  "3MS": ["u", "-i (uning)", "uni / unga"], "3FS": ["u (ayol)", "-i (uning)", "uni / unga"], "3MP": ["ular", "-lari (ularning)", "ularni / ularga"], "3FP": ["ular (ayollar)", "-lari (ularning)", "ularni / ularga"], "3D": ["ikkisi", "-lari (ikkisining)", "ikkisini / ikkisiga"] };
+const sfPer = t => { const m = t.find(x => /^[123](M|F)?(S|P|D)$/.test(x)); if (!m) return null; const k = SF_PER[m] ? m : m.replace(/[MF](?=D)/, ""); return { k: m, v: SF_PER[k] || SF_PER[m] }; };
+const SF_PART = {
+  DET: "aniqlik artikli «al» — ma'lum narsa", CONJ: "bog'lovchi: va", REM: "yangi gap boshi: va / bas", CIRC: "hol: holbuki", RSLT: "natija: bas, demak", CAUS: "sabab: chunki",
+  NEG: "inkor: yo'q / emas", ACC: "ta'kid: albatta (inna)", SUB: "bog'lovchi: -ki, -ishi", COND: "shart: agar", CERT: "aniqlik: batahqiq (qad)", RES: "cheklov: faqat",
+  EXP: "istisno: -dan boshqa", PRO: "taqiq: -ma", ANS: "javob", SUR: "to'satdan: nogoh", INC: "boshlanish", AMD: "tuzatish: balki", EQ: "tenglik: -mi yoki", RET: "qaytarish: yo'q, balki",
+  PREV: "to'xtatuvchi «mo»", EXL: "tafsil: ammo", INTG: "so'roq: -mi?", VOC: "nido: ey", ATT: "diqqat qaratish: ho", FUT: "kelasi zamon: -ajak", EMPH: "ta'kid: albatta", PRP: "maqsad: ...ishi uchun",
+  IMPV: "buyruq: -sin", T: "vaqt", LOC: "o'rin", SUP: "qo'shimcha", INT: "izoh", COM: "birgalik: bilan", EXH: "undash: nega -masang", EXL2: "", ADDR: "murojaat qo'shimchasi (tinglovchiga)", DIST: "uzoqlik: o'sha",
+  INL: "muqatta' harflar", SP: "maxsus", AVR: "inkor: yo'q", CERT2: "" };
+const SF_PREP = { "ب": "old ko'makchi: bilan / -da / -ga", "ل": "old ko'makchi: uchun / -ga", "ك": "old ko'makchi: kabi", "و": "qasam: ... haqqi", "ت": "qasam: ... haqqi" };
+const SF_DIAC = /[ً-ٰٟۖ-ۭ]/;
+function sarfSegs(s, n, wi) {
+  const ay = window.SARF && SARF[s - 1] && SARF[s - 1][n - 1]; if (!ay) return null;
+  const w = ay.split("|")[wi]; if (!w) return null;
+  const segs = w.split("+").map(x => { const i = x.lastIndexOf("~"); const t = x.slice(i + 1).split("."); return { ar: x.slice(0, i), pos: t[0], t: t.slice(1) }; });
+  const out = []; let verb = null, subjDone = false;
+  segs.forEach((g, gi) => {
+    const t = g.t, has = x => t.includes(x), suff = has("S");
+    if (g.pos === "V") {
+      verb = g; const pr = sfPer(t), root = (t.find(x => x.startsWith("R:")) || "").slice(2).split("").join("  ");
+      const pass = has("PASS") ? " · majhul (ish qilindi)" : "", kana = t.some(x => x.startsWith("FAM:")) ? " · nuqson fe'li («edi»)" : "";
+      if (has("IMPF")) {
+        let k = 1; while (k < g.ar.length && SF_DIAC.test(g.ar[k])) k++;
+        const pl = g.ar[0], who = pr ? pr.v[0] : "";
+        const lbl = pl === "ي" ? `3-shaxs: ${who}` : pl === "ت" ? (pr && pr.k[0] === "2" ? `2-shaxs: ${who}` : `3-shaxs: ${who}`) : (pl === "أ" || pl === "ا") ? "1-shaxs: men" : pl === "ن" ? "1-shaxs: biz" : who;
+        out.push({ ar: g.ar.slice(0, k), c: "pre", l: `${lbl} · hozirgi-kelasi zamon` });
+        out.push({ ar: g.ar.slice(k), c: "stem", l: `fe'l o'zagi${pass}${kana}`, r: root });
+      } else if (has("IMPV")) out.push({ ar: g.ar, c: "stem", l: `buyruq fe'li (${pr ? pr.v[0] : "sen"})`, r: root });
+      else out.push({ ar: g.ar, c: "stem", l: `o'tgan zamon fe'li${pr && !(pr.k === "3MS") ? "" : " (u)"}${pass}${kana}`, r: root });
+      return;
+    }
+    if (has("PRON")) {
+      const pr = sfPer(t); const v = pr ? pr.v : ["", "", ""];
+      if (!suff) { out.push({ ar: g.ar, c: "stem", l: `olmosh: ${v[0]}` }); return; }
+      const prev = segs[gi - 1];
+      if (verb && !subjDone && pr && verb.t.includes(pr.k) && !(verb.t.includes("IMPF") && /^(3MS|3FS|2MS|1S|1P)$/.test(pr.k)) && !(verb.t.includes("IMPV") && pr.k === "2MS")) {
+        subjDone = true; out.push({ ar: g.ar, c: "suf", l: `«${v[0]}» qo'shimchasi` }); return;
+      }
+      if (verb) { subjDone = true; out.push({ ar: g.ar, c: "obj", l: `to'ldiruvchi: ${v[2]}` }); return; }
+      if (prev && prev.pos === "P") { out.push({ ar: g.ar, c: "obj", l: `olmosh: ${v[0]} (${v[2].split(" / ")[1] || v[2]})` }); return; }
+      out.push({ ar: g.ar, c: "obj", l: `egalik: ${v[1]}` }); return;
+    }
+    if (g.pos === "P") {
+      const tag = t.find(x => x !== "S" && !x.startsWith("FAM:") && x.length > 1 && !/^(M|F|MS|FS|MP|FP)$/.test(x)) || "P";
+      const base = g.ar.replace(/[ً-ٰٟۖ-ۭـ]/g, "").replace("ٱ", "ا");
+      const SF_PW = { "من": "ko'makchi: -dan", "في": "ko'makchi: -da, ichida", "فى": "ko'makchi: -da, ichida", "علي": "ko'makchi: ustida, -ga", "على": "ko'makchi: ustida, -ga", "الي": "ko'makchi: -ga, tomon", "إلى": "ko'makchi: -ga, tomon", "إلي": "ko'makchi: -ga, tomon", "عن": "ko'makchi: haqida, -dan", "حتي": "ko'makchi: -gacha", "حتى": "ko'makchi: -gacha", "مع": "birga" };
+      let l = tag === "P" ? (SF_PREP[base] || SF_PW[base] || "ko'makchi (predlog)") : (SF_PART[tag] || "yuklama");
+      if (tag === "EMPH" && suff) l = "ta'kid nuni: albatta";
+      if (tag === "CONJ" && base === "ف") l = "bog'lovchi: bas, so'ng";
+      if (tag === "REM" && base === "ف") l = "bas, so'ng";
+      out.push({ ar: g.ar, c: suff ? "suf" : (base.length > 1 && segs.length > 1 && gi === segs.length - 1) || (base.length > 1 && segs.length === 1) ? "stem" : (base.length > 1 ? "stem" : "pre"), l }); return;
+    }
+    // ot (ism)
+    const kind = has("PN") ? "atoqli ot" : has("REL") ? "nisbiy olmosh (ki, kimki)" : has("DEM") ? "ko'rsatish olmoshi (bu / o'sha)" : has("ACT_PCPL") ? "ism fo'il (qiluvchi)" :
+      has("PASS_PCPL") ? "ism maf'ul (qilingan)" : has("VN") ? "masdar (harakat nomi)" : has("ADJ") ? "sifat" : has("T") ? "vaqt bildiruvchi ot" : has("LOC") ? "o'rin bildiruvchi ot" : has("INTG") ? "so'roq olmoshi" : has("COND") ? "shart olmoshi" : "ot (ism)";
+    const num = t.some(x => /^(MP|FP|P)$/.test(x)) ? " · ko'plik" : t.some(x => /D$/.test(x) && !/^\d/.test(x)) ? " · ikkilik" : "";
+    const cs = has("NOM") ? " · marfu' (ega)" : has("ACC") ? " · mansub (to'ldiruvchi/hol)" : has("GEN") ? " · majrur (qaratqich/ko'makchidan keyin)" : "";
+    out.push({ ar: g.ar, c: "stem", l: kind + num + cs });
+  });
+  return out;
+}
+function sarfHtml(s, n, wi, mean) {
+  const segs = sarfSegs(s, n, wi);
+  if (!segs || (segs.length < 2 && !(segs[0] && segs[0].c === "pre"))) return segs && segs.length ? `<div class="sarf"><div class="sf-h">🔍 Sarf tahlili</div><div class="sf-one">${esc(segs[0].l)}</div></div>` : "";
+  return `<div class="sarf"><div class="sf-h">🔍 Sarf tahlili — so'z qismlari</div>
+    <div class="sf-row" style="grid-template-columns:repeat(${segs.length},1fr)">${segs.map(g => `<div class="sf-seg ${g.c}"><span class="sf-ar">${esc(g.ar)}</span><span class="sf-l">${esc(g.l)}</span>${g.r ? `<span class="sf-r">o'zak: <b dir="rtl">${esc(g.r)}</b></span>` : ""}</div>`).join("")}</div>
+    ${mean ? `<div class="sf-sum">= «${esc(uzShow(mean))}»</div>` : ""}
+    <div class="sf-key"><span class="pre">old qo'shimcha</span><span class="stem">o'zak</span><span class="suf">shaxs/ta'kid</span><span class="obj">olmosh</span></div></div>`;
+}
+function sarfInto(el, s, n, wi, mean) { if (!el) return; loadSarf().then(() => { el.innerHTML = sarfHtml(s, n, wi, mean); }).catch(() => { el.innerHTML = ""; }); }
 function wordDetailHtml(s, n, wi, ar, mean) {
   const m = morphOf(ar);
   if (!m) return `<div class="note" style="padding:8px 0">Bu so'z uchun ildiz ma'lumoti yo'q (odatda yuklama yoki olmosh).</div>`;
@@ -1009,7 +1103,7 @@ function vListen() {
 }
 
 // ---------- Zaxira nusxa ----------
-const BK_KEYS = ["vocab", "notes", "bookmarks", "daily", "settings", "last", "vReverse"];
+const BK_KEYS = ["pageMarks", "readDays", "readTime", "dayPages", "vocab", "notes", "bookmarks", "daily", "settings", "last", "vReverse"];
 function doBackup() {
   const data = { app: "quron-organ", v: 1, date: new Date().toISOString() };
   BK_KEYS.forEach(k => data[k] = store.get(k, null));
@@ -1067,7 +1161,7 @@ function vReview(queue, extra) {
         <div class="card flash">${vReverse && !shown ? `<div class="fa" style="padding:40px 10px 10px">${esc(uzShow(c.m))}</div>` : `<div class="fq">${esc(c.ar)}</div>`}
           ${shown ? `${vReverse ? `<div class="fa">${esc(uzShow(c.m))}</div>` : ""}<div class="wtl" style="text-align:center">${esc(c.tl)}</div>${vReverse ? "" : `<div class="fa">${esc(uzShow(c.m))}</div>`}
             ${c.note ? `<div class="tipbox">💡 ${esc(c.note)}</div>` : ""}
-            <div id="vDet" class="vdet"></div>
+            <div id="vSarf"></div><div id="vDet" class="vdet"></div>
             <div class="note" style="text-align:center">${esc(SURAS[c.s - 1][0])}, ${c.n}-oyat · <a href="#" id="vCtx">oyatni ochish</a> · <a href="#" id="vMore">batafsil</a></div>` :
             `<div class="note" style="text-align:center;padding:18px">${vReverse ? "Arabchasini eslang (iloji bo'lsa yozib ko'ring)" : "Ma'nosini eslang"}, so'ng javobni oching</div>`}
           <div style="text-align:center;padding-bottom:12px">${shown || !vReverse ? `<button class="btn out" id="vSay">🔊 Tinglash</button>` : ""}</div></div>
@@ -1075,6 +1169,7 @@ function vReview(queue, extra) {
           : `<div class="pad"><button class="btn" id="vShow" style="width:100%;padding:14px">Javobni ko'rsatish</button></div>`}`;
       const vs = $("#vSay"); if (vs) vs.onclick = () => playWord(c.audio, c.ar);
       const vm = $("#vMore"); if (vm) vm.onclick = (e) => { e.preventDefault(); showWordDetail(k); };
+      sarfInto($("#vSarf"), c.s, c.n, c.wi != null ? c.wi : +k.split(":")[2], c.m);
       const vd = $("#vDet"); if (vd) { const m = morphOf(c.ar); if (m && m.root) { const X = morphIndex(); if (X.lroot.has(m.li)) m.root = MORPH.R[X.lroot.get(m.li)]; vd.innerHTML = `<span>Ildiz: <b class="arx">${esc(rootPretty(m.root))}</b></span><span>Qur'onda: <b>${X.lc.get(m.li) || 0}</b> marta</span>`; } }
       const sh = $("#vShow"); if (sh) sh.onclick = () => { shown = true; draw(); };
       const cx = $("#vCtx"); if (cx) cx.onclick = (e) => { e.preventDefault(); openSura(c.s, c.n); };
@@ -1201,7 +1296,8 @@ function showWord(s, n, i, el) {
       <button class="btn" id="wplay">🔊 Tinglash</button>
       <button class="btn ${vocabHas(s, n, wi) ? "out" : ""}" id="wvoc">${vocabHas(s, n, wi) ? "✓ Lug'atimda" : "➕ Lug'atimga qo'shish"}</button></div>
     <div class="note" style="margin-top:12px">${s}-sura, ${n}-oyat, ${wi + 1}-so'z</div></div>
-    <div id="wDet"><div class="loading" style="padding:14px"><div class="spinner"></div></div></div>`, () => {
+    <div id="wSarf"></div><div id="wDet"><div class="loading" style="padding:14px"><div class="spinner"></div></div></div>`, () => {
+    sarfInto($("#wSarf"), s, n, wi, uz || other);
     setTimeout(() => { const d = $("#wDet"); if (d) { d.innerHTML = wordDetailHtml(s, n, wi, w.text_uthmani, uz || other); bindDetail(d); } }, 30);
     $("#wplay").onclick = () => playWord(audio, w.text_uthmani);
     $("#wvoc").onclick = () => {
@@ -1406,12 +1502,18 @@ function editNote(s, n) {
     const d = $("#noteD"); if (d) d.onclick = () => { const all = notes(); delete all[key]; store.set("notes", all); toast("Eslatma o'chirildi"); done(); };
   });
 }
-let savedTab = "bm";
+let savedTab = "pg";
 function vSaved() {
   setTitle("Saqlanganlar", false);
-  const chips = `<div class="chips" style="padding-top:10px"><button class="chip ${savedTab === "bm" ? "on" : ""}" data-t="bm">☆ Xatcho'plar</button><button class="chip ${savedTab === "nt" ? "on" : ""}" data-t="nt">✎ Eslatmalar</button></div>`;
+  const chips = `<div class="chips" style="padding-top:10px"><button class="chip ${savedTab === "pg" ? "on" : ""}" data-t="pg">🔖 Sahifalar</button><button class="chip ${savedTab === "bm" ? "on" : ""}" data-t="bm">☆ Oyatlar</button><button class="chip ${savedTab === "nt" ? "on" : ""}" data-t="nt">✎ Eslatmalar</button></div>`;
   let body;
-  if (savedTab === "bm") {
+  if (savedTab === "pg") {
+    const l = pmarks();
+    body = !l.length ? `<div class="empty">Hozircha xatcho'p yo'q.<br>Sahifani o'qiyotganda tepadagi 🏷 belgisini bosing.</div>` :
+      `<div class="card">` + l.map((b, i) => `<div class="row" data-p="${b.p}"><div class="num">${b.p}</div><div class="rmain">
+      <div class="rtitle">${b.p}-sahifa</div><div class="rsub">${esc(SURAS[b.s - 1][0])} ${b.a}-oyat · ${juzOf(b.s, b.a)}-pora · ${new Date(b.d).toLocaleDateString("ru-RU")}</div></div>
+      <button class="iconbtn" data-pdel="${i}" style="color:var(--muted)">✕</button></div>`).join("") + `</div>`;
+  } else if (savedTab === "bm") {
     const l = bms();
     body = !l.length ? `<div class="empty">Hozircha saqlangan oyat yo'q.<br>Oyat yonidagi ☆ belgisini bosib saqlang.</div>` :
       `<div class="card">` + l.map((b, i) => `<div class="row" data-s="${b.s}" data-a="${b.a}"><div class="num">${b.a}</div><div class="rmain">
@@ -1428,6 +1530,9 @@ function vSaved() {
   $$(".row", view).forEach(r => r.onclick = (e) => {
     const d = e.target.closest("[data-del]");
     if (d) { const x = bms(); x.splice(+d.dataset.del, 1); store.set("bookmarks", x); render(view.scrollTop); return; }
+    const pd = e.target.closest("[data-pdel]");
+    if (pd) { const x = pmarks(); x.splice(+pd.dataset.pdel, 1); store.set("pageMarks", x); render(view.scrollTop); return; }
+    if (r.dataset.p) { openPage(+r.dataset.p); return; }
     openSura(+r.dataset.s, +r.dataset.a);
   });
 }
@@ -1673,7 +1778,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.1<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.3<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Sarf (morfologiya): Quranic Arabic Corpus (corpus.quran.com, GPL) · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();
