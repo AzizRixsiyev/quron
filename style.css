@@ -457,3 +457,42 @@ body.dark .sf-seg.pre .sf-ar { color: #6fb6ff; } body.dark .sf-seg.suf .sf-ar { 
 .upd-notes { margin: 0 0 8px 18px; padding: 0; line-height: 1.6; font-size: 15px; }
 .upd-auto { display: flex; gap: 10px; align-items: center; font-size: 14.5px; margin-top: 8px; }
 .upd-auto input { width: 20px; height: 20px; }
+
+/* ---------- Qur'on o'qish qoidalari (boshlovchilar, katta yoshlilar uchun) ---------- */
+body.qoida { --bg: #fbf3df; --card: #fffaf0; --text: #1b140a; --muted: #6e5a3e; --line: #e6d6b3; --hl: #f6e6bd; --green: #7a4a1e; --green2: #9a6431; --acc2: #7a4a1e; --wbw: #7a4a1e; --gold: #a8742c; --head: #7a4a1e; --hero1: #7a4a1e; --hero2: #a8742c; --btntext: #fff; --mehrob: none; font-size: 18px; }
+body.qoida main { background-image: none !important; }
+.qd-top { padding: 14px 14px 4px; }
+.qd-ttl { font-size: 22px; font-weight: 800; color: var(--head); }
+.qd-sub { color: var(--muted); font-size: 15px; margin-top: 4px; line-height: 1.4; }
+.qd-btns { display: flex; gap: 8px; margin-top: 10px; }
+.qd-btns .btn { flex: 1; font-size: 16px; padding: 12px 8px; }
+.qd-card { background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; margin: 12px 10px; padding: 12px 14px 14px; box-shadow: 0 1px 3px rgba(60,40,10,.06); }
+.qd-card .ayah-head { display: flex; align-items: center; gap: 6px; }
+.qd-card .ayah-head .key { font-weight: 800; font-size: 16px; color: var(--head); margin-right: auto; }
+.qd-lvl { font-size: 13px; padding: 3px 9px; border-radius: 12px; background: var(--hl); color: var(--text); font-weight: 600; }
+.qd-ar { font-family: var(--arfont); font-size: calc(var(--ar) * 1.18); line-height: 2.15; text-align: right; color: var(--text); margin: 8px 0 6px; word-spacing: 4px; }
+.qd-ar .w { cursor: pointer; border-radius: 6px; }
+.qd-ar .w.sel { background: var(--hl); }
+.qd-ar .end { color: var(--gold); font-size: .8em; }
+.qd-tl { font-size: max(19px, var(--tr)); line-height: 1.55; color: var(--text); padding: 7px 10px; background: rgba(168,116,44,.08); border-radius: 10px; margin-top: 6px; font-weight: 500; }
+.qd-tl.cyr { background: rgba(122,74,30,.05); }
+.qd-lb { display: inline-block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-right: 8px; vertical-align: middle; }
+.qd-an { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.qd-an summary { font-size: 17px; font-weight: 700; color: var(--head); cursor: pointer; padding: 6px 0; list-style-position: inside; }
+.qd-r { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.qd-r:last-child { border-bottom: 0; }
+.qd-r.tip { background: rgba(168,116,44,.07); border-radius: 10px; padding: 9px 10px; margin-top: 6px; border: 0; }
+.qd-nm { font-weight: 800; font-size: 17px; display: inline-flex; align-items: center; gap: 7px; }
+.qd-w { float: right; font-family: var(--arfont); font-size: calc(var(--ar) * .85); line-height: 1.5; }
+.qd-wd { font-weight: 400; margin-left: 6px; }
+.qd-ex { clear: both; font-size: 16px; line-height: 1.5; color: var(--text); opacity: .88; margin-top: 4px; }
+.qd-tip { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.qd-tip b { font-size: 17px; }
+.qd-ti { font-size: 26px; line-height: 1; }
+.qd-bsm .qd-ar { text-align: center; }
+body.dark .qd-tl { background: rgba(255,255,255,.05); }
+.qd-echo { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: #2f7a3c; color: #fff; font-size: 18px; font-weight: 600; }
+.qd-echo b { font-size: 26px; min-width: 34px; text-align: center; }
+.qd-echo span { flex: 1; }
+.qd-echo .btn { background: #fff; color: #2f7a3c; font-size: 15px; padding: 8px 12px; }
+.qd-card.playing { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(168,116,44,.25); }

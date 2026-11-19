@@ -1,11 +1,11 @@
 {
-  "name": "3.4",
-  "apk": 25,
+  "name": "3.5",
+  "apk": 26,
   "apkUrl": "quron.apk",
   "notes": [
-    "Yangi versiya chiqqanda ilova «Yangilaymi?» deb so'raydi",
-    "Sarf tahlili: so'z qaysi qismlardan tuzilgani (يَـ + أْتُ + ـونَ + ـكَ)",
-    "Sahifaga xatcho'p qo'yish 🔖",
-    "Juda katta harflar va lug'at so'zlari rangda"
+    "Yangi mavzu: «Qur'on o'qish qoidalari» — boshlovchilar uchun",
+    "Har oyat: arabcha + lotin va kirill transkripsiya, tajvid tahlili",
+    "🎧 Tinglab takrorla: qori o'qiydi, keyin siz takrorlaysiz",
+    "🐢 Sekin qiroat: 1× / 0.85× / 0.75× / 0.6×"
   ]
 }

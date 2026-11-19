@@ -208,12 +208,12 @@ function closeSheet() {
 $(".sheet-bg").onclick = closeSheet;
 
 function applyTheme() {
-  document.body.classList.remove("dark", "sepia", "qmushaf", "ms-madina", "ms-oldmadina", "ms-indopak", "ms-amiri", "ms-kfgqpc");
+  document.body.classList.remove("dark", "sepia", "qmushaf", "qoida", "ms-madina", "ms-oldmadina", "ms-indopak", "ms-amiri", "ms-kfgqpc");
   document.body.classList.add("ms-" + (S.mushaf || "madina"));
   if (S.theme !== "light") document.body.classList.add(S.theme);
   document.documentElement.style.setProperty("--ar", S.ar + "px");
   document.documentElement.style.setProperty("--tr", S.tr + "px");
-  if (NATIVE) Native.setBarColor({ dark: "#0b1120", sepia: "#6b4423", qmushaf: "#5c4a36" }[S.theme] || "#0E5C48");
+  if (NATIVE) Native.setBarColor({ dark: "#0b1120", sepia: "#6b4423", qmushaf: "#5c4a36", qoida: "#7a4a1e" }[S.theme] || "#0E5C48");
 }
 
 function speak(t) {
@@ -339,6 +339,7 @@ function curFor(s) {
 }
 function vPage(p, fs, fa) {
   if (S.theme === "qmushaf") { stack[stack.length - 1] = { fn: vMushaf, args: [p, fs, fa] }; vMushaf(p, fs, fa); return; }
+  if (S.theme === "qoida") { p = Math.max(1, Math.min(604, p | 0)); const qs = fs || PAGES[p - 1][0], qa = fa || PAGES[p - 1][1]; stack[stack.length - 1] = { fn: vQoida, args: [qs, qa] }; vQoida(qs, qa); return; }
   p = Math.max(1, Math.min(604, p | 0));
   const segs = pageSegments(p), [s1, a1] = PAGES[p - 1];
   const done = markPageRead(p), goal = S.pageGoal || 10;
@@ -708,6 +709,7 @@ function mergeApi(local, api, wantLang) {
   return langUsed;
 }
 function vSura(s, gotoA) {
+  if (S.theme === "qoida") { stack[stack.length - 1] = { fn: vQoida, args: [s, gotoA || 1] }; vQoida(s, gotoA || 1); return; }
   if (S.theme === "qmushaf") { const a = gotoA || 1; stack[stack.length - 1] = { fn: vMushaf, args: [pageOf(s, a), s, a] }; vMushaf(pageOf(s, a), s, a); return; }
   if (S.pageMode !== false) { const a = gotoA || 1; stack[stack.length - 1] = { fn: vPage, args: [pageOf(s, a), s, a] }; vPage(pageOf(s, a), s, a); return; }
   const info = SURAS[s - 1];
@@ -1253,14 +1255,15 @@ const THEMES = [
   ["light", "Zumrad", "#F6F4EE", "#0E5C48", "#0E5C48"],
   ["sepia", "Qum (sepiya)", "#f3e9d2", "#6b4423", "#7a4b25"],
   ["dark", "Tungi osmon", "#0d1422", "#0b1120", "#d4b25a"],
-  ["qmushaf", "Mushaf (faqat o'qish)", "#fbf6ea", "#5c4a36", "#2b2118"]
+  ["qmushaf", "Mushaf (faqat o'qish)", "#fbf6ea", "#5c4a36", "#2b2118"],
+  ["qoida", "Qur'on o'qish qoidalari (boshlovchilar)", "#fff6e0", "#7a4a1e", "#1b140a"]
 ];
 function themePicker() {
   return `<div class="tpick">` + THEMES.map(t => `<button data-th="${t[0]}" class="${S.theme === t[0] ? "on" : ""}"><div class="tp-prev" style="background:${t[2]}"><i style="background:${t[3]}"></i><span style="color:${t[4]}">قُرْآن</span></div><b>${t[1]}</b></button>`).join("") + `</div>`;
 }
 function bindThemePicker(root) {
   $$("[data-th]", root).forEach(x => x.onclick = () => { const was = S.theme; S.theme = x.dataset.th; save(); applyTheme();
-    const tp = stack[stack.length - 1]; if ((was === "qmushaf") !== (S.theme === "qmushaf") && tp && (tp.fn === vSura || tp.fn === vPage || tp.fn === vMushaf)) { const pp = tp.fn === vMushaf && M ? [M.p, M.s, M.a] : null; closeSheet(); if (pp) stack[stack.length - 1] = { fn: vPage, args: pp }; render(0); } $$("[data-th]", root).forEach(y => y.classList.toggle("on", y === x)); });
+    const tp = stack[stack.length - 1]; const rk = t => t === "qmushaf" ? 1 : t === "qoida" ? 2 : 0; if (rk(was) !== rk(S.theme) && tp && (tp.fn === vSura || tp.fn === vPage || tp.fn === vMushaf || tp.fn === vQoida)) { const pp = tp.fn === vMushaf && M ? [M.p, M.s, M.a] : tp.fn === vQoida && QD ? [pageOf(QD.s, qdTop()), QD.s, qdTop()] : null; closeSheet(); if (pp) stack[stack.length - 1] = { fn: vPage, args: pp }; render(0); } $$("[data-th]", root).forEach(y => y.classList.toggle("on", y === x)); });
 }
 function mushafPicker() {
   return `<div class="mpick">` + MUSHAFS.map(m => `<button data-ms="${m[0]}" class="${S.mushaf === m[0] ? "on" : ""}"><span class="mp-ar ms-${m[0]}">بِسْمِ ٱللَّهِ</span><b>${m[1]}</b><small>${m[2]}</small></button>`).join("") +
@@ -1466,6 +1469,11 @@ function markPlaying(a) {
     if (pe) { pe.classList.add("playing"); if (S.autoscroll) { const r = pe.getBoundingClientRect(), vr = view.getBoundingClientRect(); if (r.top < vr.top || r.bottom > vr.bottom) view.scrollTo({ top: pe.offsetTop - 8, behavior: "smooth" }); } }
     return;
   }
+  if (tp && tp.fn === vQoida && QD && player.s === QD.s) {
+    let qe = $("#a" + a), g = 0; while (!qe && $("#qdNext") && g++ < 30) { $("#qdNext").click(); qe = $("#a" + a); }
+    if (qe) { qe.classList.add("playing"); if (S.autoscroll) view.scrollTo({ top: qe.offsetTop - 8, behavior: "smooth" }); }
+    return;
+  }
   const el = $("#a" + a);
   const top = stack[stack.length - 1];
   if (el && top && top.fn === vSura && top.args[0] === player.s) {
@@ -1485,16 +1493,18 @@ function updPlayer() {
 function playCur() {
   player.urls = ayahUrls(player.s, player.a); player.ui = 0;
   audio.src = player.urls[0];
+  try { audio.playbackRate = S.theme === "qoida" ? (S.qdRate || 1) : 1; } catch (e) {}
   audio.play().then(() => { player.playing = true; updPlayer(); }).catch(() => {});
   markPlaying(player.a); updPlayer();
   if (NATIVE) Native.keepScreenOn(true);
 }
-function startPlayer(s, a) { player.s = s; player.a = a; player.rep = 0; player.range = null; playCur(); }
+function startPlayer(s, a) { player.echo = false; clearTimeout(player.echoT); player.s = s; player.a = a; player.rep = 0; player.range = null; playCur(); }
 function startRange(s, from, to, times) { player.s = s; player.a = from; player.rep = 0; player.range = { from, to, times, loop: 0 }; playCur(); toast(`${from}–${to}-oyatlar ${times} marta takrorlanadi`); }
-function stopPlayer() { audio.pause(); player.s = 0; player.range = null; player.playing = false; $$(".playing").forEach(x => x.classList.remove("playing")); updPlayer(); if (NATIVE) Native.keepScreenOn(false); }
+function stopPlayer() { player.echo = false; clearTimeout(player.echoT); $$(".qd-echo").forEach(x => x.remove()); audio.pause(); player.s = 0; player.range = null; player.playing = false; $$(".playing").forEach(x => x.classList.remove("playing")); updPlayer(); if (NATIVE) Native.keepScreenOn(false); }
 audio.addEventListener("ended", () => {
   if (player.rep + 1 < S.repeat) { player.rep++; playCur(); return; }
   player.rep = 0;
+  if (player.echo) { echoPause(); return; }
   const r = player.range;
   if (r) {
     if (player.a < r.to) { player.a++; playCur(); }
@@ -1823,7 +1833,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.4<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Sarf (morfologiya): Quranic Arabic Corpus (corpus.quran.com, GPL) · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.5<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Sarf (morfologiya): Quranic Arabic Corpus (corpus.quran.com, GPL) · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();
@@ -1905,4 +1915,186 @@ updVocabBadge();
 setInterval(updVocabBadge, 60000);
 if (!store.get("mig_rem6", false)) { S.remOn = true; S.remTime = "06:00"; save(); store.set("mig_rem6", true); }
 syncNative(); if (S.remOn) applyReminder();
+
+// ---------- «Qur'on o'qish qoidalari» — boshlovchilar uchun mavzu (v3.5) ----------
+// Arabcha (akademik) talaffuzdan o'zbekcha o'qish yozuviga (lotin)
+const UZ_SUN = /^(th|dh|sh|t|d|r|z|s|ṣ|ḍ|ṭ|ẓ|l|n)/;
+const AR_D = /[ؐ-ًؚ-ٰٟۖ-ۭـٱ]/g;
+function uzLatWord(w) {
+  let x = w.toLowerCase();
+  x = x.replace(/([^-aāiīuū])l-(th|dh|sh|t|d|r|z|s|ṣ|ḍ|ṭ|ẓ|n)/g, (m, a, b) => a + b + "-" + b);
+  x = x.replace(/([bcdfghjklmnpqrstvwxyzḥṣḍṭẓʿ])'(?=[bcdfghjklmnpqrstvwxyzḥṣḍṭẓʿ])/g, "$1");
+  x = x.replace(/(ṣ|ḍ|ṭ|ẓ|q|gh|kh)ā/g, "$1oo").replace(/(ṣ|ḍ|ṭ|ẓ|q|gh|kh)a/g, "$1o");
+  x = x.replace(/(^|[^s])r(r?)ā/g, "$1r$2oo").replace(/(^|[^s])r(r?)a(?!a)/g, "$1r$2o");
+  x = x.replace(/ā/g, "aa").replace(/ī/g, "iy").replace(/ū/g, "uu");
+  x = x.replace(/dh/g, "z").replace(/th/g, "s").replace(/gh/g, "g‘").replace(/kh/g, "x")
+    .replace(/ḥ/g, "h").replace(/ṣ/g, "s").replace(/ḍ/g, "z").replace(/ṭ/g, "t").replace(/ẓ/g, "z").replace(/ʿ/g, "’").replace(/'/g, "’").replace(/w/g, "v");
+  return x;
+}
+function uzLatAyah(tw, aw) {
+  let out = "";
+  const shorten = () => { out = out.replace(/\s+$/, "").replace(/(aa|oo)$/, m => m[0]).replace(/iy$/, "i").replace(/uu$/, "u"); };
+  tw.forEach((w, i) => {
+    const arRaw = aw[i] || "", arN = arRaw.replace(AR_D, "");
+    const isAllah = /^(و|ف|ب|ل|ت)?(ا|ٱ)?لله/.test(arN) || /^لله/.test(arN);
+    let x = w.toLowerCase(), glue = false;
+    if (i > 0 && /^l-/.test(x)) { glue = true; x = x.slice(2); const m = x.match(UZ_SUN); x = m ? m[1] + "-" + x : "l-" + x; }
+    else if (i > 0 && /^ٱ/.test(arRaw) && /^[aiu]/.test(x)) { glue = true; x = x.slice(1); }
+    else if (i === 0 && /^al-/.test(x)) { const r = x.slice(3), m = r.match(UZ_SUN); x = m ? "a" + m[1] + "-" + r : x; }
+    let y = uzLatWord(x);
+    if (isAllah) {
+      const prevV = glue ? out.replace(/\s+$/, "").replace(/(aa|oo|iy|uu)$/, m => m[0]).slice(-1) : (/^(li|bi)l/.test(y) ? "i" : "a");
+      y = y.replace(/l?-?la(a)?h/, prevV === "i" ? "llaah" : "llooh");
+      if (!glue && /^llooh|^llaah/.test(y)) y = "a" + y;
+    }
+    if (glue) { shorten(); out += isAllah ? y.replace("-", "") : y; }
+    else out += (out ? " " : "") + y;
+  });
+  const last = (aw[aw.length - 1] || "").replace(AR_D, "");
+  out = out.replace(/(\S+)$/, m => {
+    if (/ة$/.test(last)) return m.replace(/t(a|i|u)n?$/, "h");
+    if (/ا$/.test(last) && /an$/.test(m)) return m.replace(/an$/, "aa");
+    if (/(iy|uu|aa|oo)n[aiu]$/.test(m)) return m.slice(0, -1);
+    if (/[^aiouy’][aiu]n$/.test(m)) return m.slice(0, -2);
+    return m.replace(/([^aiouy’])(a|i|u)$/, "$1");
+  });
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
+const QD_RULES = {
+  ghunnah: ["G'unna", "ن yoki م harfi tashdidli (ّ) bo'lsa, ovoz burundan 2 harakat (taxminan 2 barmoq bukish vaqti) cho'zib chiqariladi."],
+  ikhafa: ["Ixfo", "Sokin nun (نْ) yoki tanvindan keyin ixfo harflaridan biri kelsa, nun aniq aytilmaydi — yarim yashirin, burundan 2 harakat g'unna bilan o'qiladi."],
+  ikhafa_shafawi: ["Ixfo shafaviy", "Sokin mim (مْ) dan keyin ب kelsa, lablar to'liq yopilmay, mim yengil yashirilib, g'unna bilan o'qiladi."],
+  iqlab: ["Iqlob", "Sokin nun yoki tanvindan keyin ب kelsa, nun «m» ga aylanadi va g'unna bilan o'qiladi (ustidagi kichik م belgisi shuni bildiradi)."],
+  idgham_ghunnah: ["Idg'om g'unna bilan", "Sokin nun yoki tanvindan keyin ي ن م و harflari kelsa, nun keyingi harfga qo'shilib ketadi va burundan g'unna bilan o'qiladi."],
+  idgham_wo_ghunnah: ["Idg'om g'unnasiz", "Sokin nun yoki tanvindan keyin ل yoki ر kelsa, nun umuman o'qilmaydi — to'g'ridan-to'g'ri ل/ر ga qo'shiladi, g'unnasiz."],
+  idgham_shafawi: ["Idg'om shafaviy", "Sokin mimdan keyin yana م kelsa, ikkalasi bitta tashdidli mim bo'lib, g'unna bilan o'qiladi."],
+  idgham_mutajanisayn: ["Idg'om mutajonisayn", "Maxraji bir xil, sifati boshqa ikki harf yonma-yon: birinchisi o'qilmay, ikkinchisiga qo'shiladi (masalan تْ + ط)."],
+  idgham_mutaqaribayn: ["Idg'om mutaqoribayn", "Maxraji yaqin ikki harf: birinchisi ikkinchisiga qo'shib o'qiladi (masalan لْ + ر)."],
+  qalaqah: ["Qalqala", "ق ط ب ج د harflari sukunli bo'lsa (ayniqsa to'xtaganda), harf «sakrab», aks-sado bilan aniq aytiladi."],
+  madda_normal: ["Tabiiy madd", "Madd harfi (ا و ي) cho'ziqlik beradi — 2 harakat cho'zing, ortiqcha emas."],
+  madda_permissible: ["Joiz madd", "Madd harfidan keyin keyingi so'z hamza bilan boshlansa yoki oyat oxirida to'xtalsa — 2, 4 yoki 5 harakat cho'ziladi (boshlovchiga: 4)."],
+  madda_obligatory: ["Vojib madd", "Madd harfidan keyin shu so'zning o'zida hamza (ء) kelsa — albatta 4–5 harakat cho'ziladi."],
+  madda_necessary: ["Lozim madd", "Madd harfidan keyin tashdid yoki doimiy sukun kelsa — 6 harakat to'liq cho'ziladi (eng uzun madd)."],
+  ham_wasl: ["Hamzai vasl", "Bu alif (ٱ) faqat so'zdan boshlaganda o'qiladi; oldingi so'zga ulab o'qiganda tushib qoladi."],
+  laam_shamsiyah: ["Lomi shamsiya", "«ال» dagi ل o'qilmaydi — keyingi (quyosh) harf tashdid bilan ikki marta aytiladi: ash-shams, an-naas."],
+  slnt: ["O'qilmaydigan harf", "Bu harf yozilgan, lekin o'qilmaydi — ovoz chiqarmang."]
+};
+const QD_ORDER = ["madda_necessary", "madda_obligatory", "madda_permissible", "madda_normal", "ghunnah", "idgham_ghunnah", "idgham_wo_ghunnah", "ikhafa", "iqlab", "idgham_shafawi", "ikhafa_shafawi", "idgham_mutajanisayn", "idgham_mutaqaribayn", "qalaqah", "laam_shamsiyah", "ham_wasl", "slnt"];
+function qdAnalyze(str) {
+  // TAJ satridan: har bir qoida qaysi so'zlarda uchragani
+  const found = {}; if (!str) return found;
+  let wi = 0, inW = false, code = null, seg = "";
+  const words = (tajWords(str) || []);
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (c === "{") { code = TAJ_CODES[str.charCodeAt(i + 1) - 97] || null; seg = ""; i++; continue; }
+    if (c === "}") { if (code) { const w = Math.max(0, wi - (inW ? 0 : 1)); (found[code] = found[code] || []); if (!found[code].some(x => x.w === w)) found[code].push({ w, t: seg }); } code = null; continue; }
+    if (/\s/.test(c)) { if (inW) { wi++; inW = false; } continue; }
+    if (AR_LETTER.test(c) || /[ً-ٰۖ-ۭ]/.test(c)) inW = true;
+    if (code) seg += c;
+  }
+  Object.values(found).forEach(l => l.forEach(x => x.html = words[x.w] || esc(x.t)));
+  return found;
+}
+function qdAllah(aw, lat) {
+  // Lafzulloh: oldingi harakatga qarab qalin yoki ingichka
+  const out = [], AD = /[ؐ-ًؚ-ٰٟۖ-ۭـ]/g;
+  aw.forEach((w, i) => { const b = w.replace(AD, ""); if (/^(و|ف|ب|ل|ت)?(ا|ٱ)?لله$|^لله$|^(و|ف)?لله$/.test(b) || /^(و|ف|ب|ل|ت)?ٱ?للَّه/.test(w.replace(/[ً-ِْ-ٟ]/g, ""))) out.push(w); });
+  if (!out.length) return "";
+  const thin = /llaah/.test(lat), thick = /llooh/.test(lat);
+  return `<div class="qd-r"><span class="qd-nm">Lafzulloh (اللّٰه)</span><span class="qd-w" dir="rtl">${out.map(esc).join(" ")}</span><div class="qd-ex">${thick && thin ? "Bu oyatda ikkala holat bor: oldingi harf zammali/fathali bo'lsa «Alloh» qalin (o kabi), kasrali bo'lsa «Allaah» ingichka o'qiladi." : thin ? "Oldidagi harf kasrali (i) — shuning uchun «Allaah» ingichka (tarqiq) o'qiladi." : "Oldidagi harf fatha/zammali yoki so'z boshida — «Alloh» qalin, og'iz to'la (tafxim) o'qiladi."}</div></div>`;
+}
+let QD = null;
+function qdCard(s, n) {
+  const r = (QDATA[s - 1] || [])[n - 1]; if (!r) return "";
+  const aw = r[0].split("|"), tw = r[1].split("|");
+  const taj = window.TAJ && TAJ[s - 1] ? TAJ[s - 1][n - 1] : "";
+  let ar = tajWords(taj); if (!ar || ar.length !== aw.length) ar = aw.map(esc);
+  const lat = uzLatAyah(tw, aw), cyr = lat2cyr(lat);
+  const f = qdAnalyze(taj), codes = QD_ORDER.filter(c => f[c]);
+  const rules = codes.map(c => `<div class="qd-r"><span class="qd-nm"><span class="tjdot tj-bg-${c}"></span>${QD_RULES[c][0]}</span><span class="qd-w" dir="rtl">${f[c].slice(0, 6).map(x => `<b class="qd-wd">${x.html}</b>`).join(" ")}</span><div class="qd-ex">${QD_RULES[c][1]}</div></div>`).join("");
+  const lw = lat.split(" ").pop(), last = lw.includes("-") ? "…" + lw.split("-").pop() : lw;
+  const al = qdAllah(aw, lat);
+  const nRules = codes.length + (al ? 1 : 0);
+  const lvl = nRules <= 2 ? ["oson", "🟢 Oson"] : nRules <= 5 ? ["orta", "🟡 O'rtacha"] : ["qiyin", "🔴 Qoidalar ko'p"];
+  const bm = isBookmarked(s, n);
+  return `<div class="ayah qd-card" id="a${n}" data-n="${n}" data-s="${s}">
+    <div class="ayah-head"><span class="key">${s}:${n}</span><span class="qd-lvl ${lvl[0]}">${lvl[1]}</span>
+      <button class="iconbtn" data-act="play" title="Tinglash">▶</button>
+      <button class="iconbtn ${bm ? "on" : ""}" data-act="bm" title="Saqlash">${bm ? "★" : "☆"}</button></div>
+    <div class="qd-ar" dir="rtl">${ar.map((h, i) => `<span class="w" data-i="${i}"><span class="wa">${h}</span></span>`).join(" ")} <span class="end">﴿${arDigits(n)}﴾</span></div>
+    <div class="qd-tl"><span class="qd-lb">Lotin</span>${esc(lat)}</div>
+    <div class="qd-tl cyr"><span class="qd-lb">Кирилл</span>${esc(cyr)}</div>
+    <details class="qd-an" ${QD && QD.open ? "open" : ""}><summary>📘 Tajvid tahlili — ${nRules} ta qoida</summary>
+      ${rules}${al}
+      <div class="qd-r tip"><span class="qd-nm">⏸ Vaqf (to'xtash)</span><div class="qd-ex">Oyat oxirida to'xtaganda oxirgi so'zni <b>«${esc(last)}»</b> deb, oxirgi harakatsiz (sukun bilan) tugatiladi. Tanvinli «-an» esa «-aa» bo'ladi, «ة» esa «h» deb o'qiladi.</div></div>
+      ${nRules === 0 ? `<div class="qd-ex">Bu oyatda alohida tajvid qoidasi yo'q — harflarni aniq va shoshilmay o'qing.</div>` : ""}
+    </details></div>`;
+}
+const QD_TIPS = [
+  ["🎧", "Avval tinglang, keyin takrorlang", "Har oyatni ▶ bilan 2–3 marta tinglang, so'ng qorini to'xtatib o'zingiz ovoz chiqarib o'qing. Sozlamalar → Takrorlash sonini 3 qilib qo'ying."],
+  ["🔤", "Arab harflarini mustahkamlang", "Transkripsiya — faqat yordamchi. Arab harflarida aniq ko'rsatilmagan tovushlar (ع ح ق ص ض ط ظ) lotin/kirill yozuvida to'liq aks etmaydi. O'rganish → Alifbo bo'limidan boshlang."],
+  ["🐢", "Sekin va oz-ozdan", "Kuniga 5–10 oyat yetarli. Tez o'qishdan ko'ra to'g'ri o'qish muhim. Qisqa suralardan (Fotiha, 114 → 103) boshlang."],
+  ["🎨", "Bir vaqtda bitta qoida", "Avval faqat madd (cho'zish) va g'unnaga e'tibor bering. O'zlashtirgach, ixfo, idg'om, iqlobga o'ting. Ranglar qaysi harfda qoida borligini ko'rsatadi."],
+  ["🗣", "Ovoz chiqarib o'qing", "Ichingizda emas, eshitiladigan qilib o'qing — til va lab harflarni to'g'ri chiqarishga o'rganadi."],
+  ["👳", "Ustozga eshittiring", "Tajvidni kitobdan to'liq o'rganib bo'lmaydi. Haftada bir marta masjid imomi yoki qoriga o'qib bering — xatolarni u tuzatadi."],
+  ["📅", "Har kuni, bir xil vaqtda", "Bomdoddan keyin 10 daqiqa — eng barakali odat. Ilova 06:00 da eslatadi, ketma-ketlikni uzmang."],
+  ["🤲", "Niyat va sabr", "«Qur'onni qiynalib, duduqlanib o'qigan kishiga ikki ajr bor» (Buxoriy, Muslim). Qiynalish — ajrning bir qismi."]
+];
+function qoidaTips() {
+  openSheet(`<h3>Boshlovchilarga maslahatlar</h3>` + QD_TIPS.map(t => `<div class="qd-tip"><span class="qd-ti">${t[0]}</span><div><b>${t[1]}</b><div class="qd-ex">${t[2]}</div></div></div>`).join("") +
+    `<h3 style="margin-top:14px">Harakat (cho'zish o'lchovi)</h3><div class="qd-ex">1 harakat — barmoqni bir marta bukish vaqti. Tabiiy madd 2, joiz 4, vojib 4–5, lozim 6 harakat.</div>
+    <h3 style="margin-top:14px">Ranglar</h3>` + QD_ORDER.filter(c => c !== "slnt").map(c => `<div class="hrow" style="padding:6px 2px"><span class="tjdot tj-bg-${c}"></span><div class="rmain">${QD_RULES[c][0]}</div></div>`).join(""));
+}
+function vQoida(s, a) {
+  s = Math.max(1, Math.min(114, s | 0)); a = Math.max(1, a | 0);
+  const tot = SURAS[s - 1][2];
+  QD = { s, from: Math.max(1, a - 0), to: 0, open: QD ? QD.open : store.get("qdOpen", true) };
+  setTitle(SURAS[s - 1][0], true, { icon: "Aa", fn: () => readerSettings(s) }, { icon: "💡", fn: qoidaTips });
+  view.innerHTML = `<div class="qd-top"><div class="qd-ttl">Qur'on o'qish qoidalari</div><div class="qd-sub">${esc(SURAS[s - 1][0])} · ${tot} oyat · har oyat: arabcha, lotin, kirill va tajvid tahlili</div>
+    <div class="qd-btns"><button class="btn" id="qdEcho">🎧 Tinglab takrorla</button><button class="btn out" id="qdRate">🐢 ${(S.qdRate || 1) === 1 ? "1×" : S.qdRate + "×"}</button></div><div class="qd-btns"><button class="btn out" id="qdTips">💡 Maslahatlar</button><button class="btn out" id="qdAll">${QD.open ? "Tahlilni yig'ish" : "Tahlilni ochish"}</button></div></div>
+    ${s !== 1 && s !== 9 && QD.from === 1 ? `<div class="qd-card qd-bsm"><div class="qd-ar" dir="rtl">بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div><div class="qd-tl"><span class="qd-lb">Lotin</span>Bismillaahir-rohmaanir-rohiym</div><div class="qd-tl cyr"><span class="qd-lb">Кирилл</span>${lat2cyr("Bismillaahir-rohmaanir-rohiym")}</div></div>` : ""}
+    <div id="qdList"></div><div class="pad" id="qdMore"></div>`;
+  const more = () => {
+    const end = Math.min(tot, (QD.to || QD.from - 1) + 15);
+    let h = ""; for (let n = (QD.to || QD.from - 1) + 1; n <= end; n++) h += qdCard(s, n);
+    $("#qdList").insertAdjacentHTML("beforeend", h); QD.to = end;
+    $("#qdMore").innerHTML = end < tot ? `<button class="btn" id="qdNext" style="width:100%">Keyingi oyatlar (${end + 1}–${Math.min(tot, end + 15)})</button>`
+      : s < 114 ? `<button class="btn" id="qdNextS" style="width:100%">Keyingi sura: ${esc(SURAS[s][0])} ›</button>` : "";
+    const nb = $("#qdNext"); if (nb) nb.onclick = more;
+    const ns = $("#qdNextS"); if (ns) ns.onclick = () => { stack[stack.length - 1] = { fn: vQoida, args: [s + 1, 1] }; vQoida(s + 1, 1); view.scrollTop = 0; };
+  };
+  more();
+  $("#qdTips").onclick = qoidaTips;
+  $("#qdEcho").onclick = () => { const st = qdTop(); startPlayer(s, st); player.echo = true; toast("Qori o'qiydi → keyin siz takrorlaysiz"); };
+  $("#qdRate").onclick = (e) => { const L = [1, 0.85, 0.75, 0.6], i = (L.indexOf(S.qdRate || 1) + 1) % L.length; S.qdRate = L[i]; save(); try { audio.playbackRate = S.qdRate; } catch (x) {} e.target.textContent = "🐢 " + S.qdRate + "×"; toast("Qiroat tezligi: " + S.qdRate + "×"); };
+  $("#qdAll").onclick = (e) => { QD.open = !QD.open; store.set("qdOpen", QD.open); $$(".qd-an", view).forEach(d => d.open = QD.open); e.target.textContent = QD.open ? "Tahlilni yig'ish" : "Tahlilni ochish"; };
+  view.onscroll = () => { const nb = $("#qdNext"); if (nb && view.scrollTop + view.clientHeight > view.scrollHeight - 600) more(); };
+  view.onclick = (e) => {
+    const card = e.target.closest(".qd-card[data-n]"); if (!card) return;
+    const n = +card.dataset.n, b = e.target.closest("[data-act]");
+    if (b && b.dataset.act === "play") { startPlayer(s, n); return; }
+    if (b && b.dataset.act === "bm") { toggleBookmark(s, n); const on = isBookmarked(s, n); b.classList.toggle("on", on); b.textContent = on ? "★" : "☆"; return; }
+    const w = e.target.closest(".qd-ar .w"); if (w) { if (!cur || cur.s !== s || !cur.verses) cur = { s, verses: localVerses(s) || [], tr: {}, hasUz: true, lang: "uz", apiLang: "english", trErr: false }; LAST_AY = card; showWord(s, n, +w.dataset.i, w); }
+  };
+  if (a > 1) setTimeout(() => { const el = $("#a" + a); if (el) view.scrollTop = el.offsetTop - 60; }, 0);
+}
+
+function qdTop() { const els = $$(".qd-card[data-n]", view); for (const el of els) if (el.getBoundingClientRect().bottom > 80) return +el.dataset.n; return QD ? QD.from : 1; }
+function echoPause() {
+  const s = player.s, a = player.a, d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration / (audio.playbackRate || 1) : 6;
+  let left = Math.min(90, Math.max(4, Math.round(d * 1.3 + 2)));
+  const el = $("#a" + a); let box = null;
+  if (el) { box = document.createElement("div"); box.className = "qd-echo"; const cy = el.querySelector(".qd-tl.cyr"); if (cy) cy.after(box); else el.appendChild(box); }
+  const next = () => { if (box) box.remove(); if (!player.echo || player.s !== s) return; if (a < SURAS[s - 1][2]) { player.a = a + 1; playCur(); } else { stopPlayer(); toast("Sura tugadi. Barakalla! 🤲"); } };
+  const tick = () => {
+    if (!player.echo || player.s !== s || player.a !== a) { if (box) box.remove(); return; }
+    if (box) box.innerHTML = `<span>🗣 Endi siz o'qing…</span><b>${left}</b><button class="btn out" data-echo="1">Keyingisi ›</button>`;
+    if (left-- <= 0) { next(); return; }
+    player.echoT = setTimeout(tick, 1000);
+  };
+  if (box) box.onclick = (e) => { e.stopPropagation(); if (e.target.dataset.echo) { clearTimeout(player.echoT); next(); } };
+  player.playing = false; updPlayer(); tick();
+}
 })();
