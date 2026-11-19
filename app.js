@@ -24,7 +24,7 @@ const store = {
 const DEF = {
   theme: "light", ar: 30, tr: 16, script: "lat", tr_key: "uzbek_sadiq", showTr: true,
   wbw: true, translit: false, wbwLang: "uz", wbwFallback: "ru",
-  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: true, remTime: "06:00", scrollSpeed: 3, immersive: true, pageGoal: 10, pageMode: true
+  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: true, remTime: "06:00", scrollSpeed: 3, immersive: true, pageGoal: 10, pageMode: true, vhl: true
 };
 const S = Object.assign({}, DEF, store.get("settings", {}));
 const save = () => store.set("settings", S);
@@ -754,7 +754,7 @@ function ayahWords(s, v, wbw) {
     const mean = (S.wbwLang === "uz" && uzOf(w.en)) || (w.translation && w.translation.text) || w.en || "";
     const arH = ind ? esc(ind[wi]) : tw ? tw[wi] : esc(w.text_uthmani || w.text || "");
     wi++;
-    const inv = VSET.has(vKey(s, n, wi - 1)) ? " inv" : "";
+    const vk = vKey(s, n, wi - 1), inv = S.vhl !== false && VSET.has(vk) ? (VKNOWN.has(vk) ? " inv known" : " inv learn") : "";
     if (!wbw) return `<span class="w${inv}" data-i="${i}"><span class="wa">${arH}</span></span>`;
     return `<span class="w${inv}" data-i="${i}"><span class="wa">${arH}</span><span class="wt">${esc(w.transliteration && w.transliteration.text || "")}</span><span class="wm">${esc(uzShow(mean))}</span></span>`;
   }).join(" ");
@@ -765,7 +765,8 @@ function ayahWords(s, v, wbw) {
 const vKey = (s, n, wi) => `${s}:${n}:${wi}`;
 const vocab = () => store.get("vocab", {});
 let VSET = new Set(Object.keys(vocab()));
-function saveVocab(all) { store.set("vocab", all); VSET = new Set(Object.keys(all)); syncNative(); }
+let VKNOWN = new Set(Object.entries(vocab()).filter(([k, c]) => (c.iv || 0) >= 21).map(([k]) => k));
+function saveVocab(all) { store.set("vocab", all); VSET = new Set(Object.keys(all)); VKNOWN = new Set(Object.entries(all).filter(([k, c]) => (c.iv || 0) >= 21).map(([k]) => k)); syncNative(); }
 // ---------- Kunlik maqsad va ketma-ketlik ----------
 const dayKey = (d) => { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const daily = () => store.get("daily", {});
@@ -1036,7 +1037,7 @@ function restoreFrom(txt) {
       const d = JSON.parse(txt); if (d.app !== "quron-organ") throw new Error("bu ilova fayli emas");
       const cur0 = store.get("vocab", {}), nv = d.vocab || {};
       BK_KEYS.forEach(k => { if (d[k] != null && k !== "vocab") store.set(k, d[k]); });
-      store.set("vocab", Object.assign({}, cur0, nv)); VSET = new Set(Object.keys(store.get("vocab", {})));
+      saveVocab(Object.assign({}, cur0, nv));
       Object.assign(S, store.get("settings", {})); applyTheme(); syncNative(); updVocabBadge();
       toast(`Tiklandi: ${Object.keys(nv).length} ta so'z`); render(0);
     } catch (e) { toast("Fayl o'qilmadi: " + e.message); }
@@ -1247,10 +1248,12 @@ function readerSettings(s) {
     <div class="set"><label>Yozuv uslubi (xat)</label>${mushafPicker()}</div>
     ${tg("arOnly", "Faqat arabcha matn (mushaf ko'rinishi)")}
     ${tg("pageMode", "Sahifalab o'qish (Madina mushafi sahifalari)")}
+    ${tg("vhl", "Lug'atimdagi so'zlarni rang bilan ajratish")}<div class="hint" style="margin:-4px 0 8px"><span class="vlg learn">o'rganilayotgan</span> · <span class="vlg known">yodlangan</span></div>
     ${tg("tajweed", "Rangli tajvid")}<div class="set" style="padding-top:0"><button class="btn out" id="tjLeg">Tajvid ranglari nimani bildiradi?</button></div>
     ${tg("wbw", "So'zma-so'z tarjima")}${tg("translit", "Talaffuz (lotincha o'qilishi)")}${tg("showTr", "Oyat tarjimasi")}
-    <div class="set"><label>Arabcha harf o'lchami: <span id="arv">${S.ar}</span></label><input type="range" min="22" max="50" value="${S.ar}" id="arR"></div>
-    <div class="set"><label>Tarjima harf o'lchami: <span id="trv">${S.tr}</span></label><input type="range" min="13" max="24" value="${S.tr}" id="trR"></div>
+    <div class="set"><label>Harf o'lchami (tez tanlash)</label><div class="seg" id="szPre"><button data-a="30" data-t="16">Oddiy</button><button data-a="44" data-t="20">Katta</button><button data-a="60" data-t="24">👓 Juda katta</button><button data-a="80" data-t="30">Eng katta</button></div></div>
+    <div class="set"><label>Arabcha harf o'lchami: <span id="arv">${S.ar}</span></label><input type="range" min="22" max="96" value="${S.ar}" id="arR"></div>
+    <div class="set"><label>Tarjima harf o'lchami: <span id="trv">${S.tr}</span></label><input type="range" min="13" max="36" value="${S.tr}" id="trR"></div>
     <div class="set"><label>Tarjima</label>${seg("tr_key", TRANSLATIONS)}</div>
     <div class="set"><label>So'zma-so'z tili</label>${seg("wbwLang", [["uz", "O'zbekcha"], ["ru", "Ruscha"], ["en", "Inglizcha"]])}</div>
     <div class="set"><label>Yozuv</label>${seg("script", [["lat", "Lotin"], ["cyr", "Kirill"]])}</div>`, (b) => {
@@ -1259,6 +1262,7 @@ function readerSettings(s) {
     $$(".seg", b).forEach(g => $$("button", g).forEach(x => x.onclick = () => { S[g.dataset.k] = x.dataset.v; $$("button", g).forEach(y => y.classList.toggle("on", y === x)); save(); dirty = true; }));
     $("#arR").oninput = e => { S.ar = +e.target.value; $("#arv").textContent = S.ar; applyTheme(); save(); };
     $("#trR").oninput = e => { S.tr = +e.target.value; $("#trv").textContent = S.tr; applyTheme(); save(); };
+    $$("#szPre button", b).forEach(x => x.onclick = () => { S.ar = +x.dataset.a; S.tr = +x.dataset.t; $("#arR").value = S.ar; $("#arv").textContent = S.ar; $("#trR").value = S.tr; $("#trv").textContent = S.tr; applyTheme(); save(); dirty = true; });
     if (!NATIVE) { const e = $("#dlAud"); if (e) e.closest(".set").remove(); } else $("#dlAud").onclick = () => downloadSuraAudio(s);
     bindMushafPicker(b, () => { dirty = true; });
     bindThemePicker(b);
@@ -1636,9 +1640,9 @@ function vSettings() {
   const tg = (k, l, hint) => `<div class="set"><div class="toggle"><label>${l}</label><div class="sw ${S[k] ? "on" : ""}" data-t="${k}"></div></div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>`;
   view.innerHTML = `<div class="card">
     <div class="set"><label>Mavzu (fon va ranglar)</label>${themePicker()}</div>
-    <div class="set"><label>Arabcha harf o'lchami: <span id="arv">${S.ar}</span></label><input type="range" min="22" max="50" value="${S.ar}" id="arR">
+    <div class="set"><label>Arabcha harf o'lchami: <span id="arv">${S.ar}</span></label><input type="range" min="22" max="96" value="${S.ar}" id="arR">
       <div class="ar-line" id="arPrev" style="text-align:center">بِسْمِ ٱللَّهِ</div></div>
-    <div class="set"><label>Tarjima harf o'lchami: <span id="trv">${S.tr}</span></label><input type="range" min="13" max="24" value="${S.tr}" id="trR"></div>
+    <div class="set"><label>Tarjima harf o'lchami: <span id="trv">${S.tr}</span></label><input type="range" min="13" max="36" value="${S.tr}" id="trR"></div>
     <div class="set"><label>Tarjima yozuvi</label>${seg("script", [["lat", "Lotin"], ["cyr", "Kirill"]])}</div></div>
   <div class="card"><div class="set"><label>Arabcha yozuv uslubi (xat)</label>${mushafPicker()}</div>
     ${tg("arOnly", "Faqat arabcha matn (mushaf ko'rinishi)", "Tarjima va so'zma-so'zsiz, uzluksiz o'qish uchun. O'qish oynasidagi «ع» tugmasi ham shu.")}</div>
@@ -1669,7 +1673,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.0<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v3.1<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com · Shrift: KFGQPC Uthmanic Script HAFS (Shoh Fahd Qur'on chop etish majmuasi, bepul litsenziya).<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();

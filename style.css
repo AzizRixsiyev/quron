@@ -406,3 +406,22 @@ body.imm .mbar { padding-top: calc(7px + env(safe-area-inset-top)); }
 .mp-slist button b { min-width: 28px; color: var(--muted); }
 .mp-slist button span { margin-left: auto; font-family: "AmiriQuran", serif; font-size: 18px; color: var(--green); }
 .mp-slist button.on { border-color: var(--green); background: var(--hl); }
+/* Katta harflar: so'z ma'nosi va talaffuz ham kattalashadi */
+.wbw .w .wm { font-size: calc(var(--tr) * .8); }
+.wbw.tl .w .wt { font-size: calc(var(--tr) * .72); }
+.mushaf { font-size: calc(var(--ar) * 1.05); }
+/* Lug'atdagi so'zlar: o'rganilayotgan — to'q sariq, yodlangan — yashil */
+.w.inv .wa { text-decoration: none; }
+.w.inv.learn { background: rgba(230, 126, 34, .16); box-shadow: inset 0 -3px 0 #e67e22; border-radius: 6px; }
+.w.inv.learn .wa, .w.inv.learn .wa * { color: #c25a00 !important; }
+.w.inv.learn .wm { color: #c25a00; font-weight: 700; }
+.w.inv.known { box-shadow: inset 0 -2px 0 #27ae60; border-radius: 6px; }
+.w.inv.known .wa, .w.inv.known .wa * { color: #1e8449 !important; }
+.wbw .w.inv.learn { border-color: #e67e22; border-style: solid; }
+.wbw .w.inv.known { border-color: #27ae60; border-style: solid; }
+body.dark .w.inv.learn .wa, body.dark .w.inv.learn .wa *, body.dark .w.inv.learn .wm { color: #ffb066 !important; }
+body.dark .w.inv.known .wa, body.dark .w.inv.known .wa * { color: #6fdc9a !important; }
+.vlg { padding: 1px 6px; border-radius: 6px; font-weight: 700; }
+.vlg.learn { color: #c25a00; background: rgba(230, 126, 34, .16); box-shadow: inset 0 -2px 0 #e67e22; }
+.vlg.known { color: #1e8449; box-shadow: inset 0 -2px 0 #27ae60; }
+#szPre button { font-size: 13px; }
