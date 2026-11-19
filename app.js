@@ -24,7 +24,7 @@ const store = {
 const DEF = {
   theme: "light", ar: 30, tr: 16, script: "lat", tr_key: "uzbek_sadiq", showTr: true,
   wbw: true, translit: false, wbwLang: "uz", wbwFallback: "ru",
-  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: false, remTime: "20:00", scrollSpeed: 3
+  reciter: "Alafasy_128kbps", repeat: 1, autoscroll: true, tajweed: true, mushaf: "madina", arOnly: false, goal: 10, remOn: false, remTime: "20:00", scrollSpeed: 3, immersive: true, pageGoal: 10
 };
 const S = Object.assign({}, DEF, store.get("settings", {}));
 const save = () => store.set("settings", S);
@@ -165,9 +165,10 @@ function push(fn, args) {
 function render(scroll) {
   const top = stack[stack.length - 1];
   if (typeof AS !== "undefined" && AS.on && top.fn !== vSura) asStop();
-  view.innerHTML = "";
+  view.innerHTML = ""; view.ontouchstart = null; view.ontouchend = null;
   top.fn.apply(null, top.args);
   view.scrollTop = scroll || 0;
+  immUpdate();
 }
 function pop() {
   if (stack.length <= 1) return false;
@@ -247,6 +248,73 @@ function vJuz(j) {
   const nx = $("#jNext"); if (nx) nx.onclick = () => { stack[stack.length - 1].args = [j + 1]; render(0); };
 }
 
+// ---------- Sahifalar (Madina mushafi, 604 sahifa) ----------
+const PAGES = [[1,1],[2,1],[2,6],[2,17],[2,25],[2,30],[2,38],[2,49],[2,58],[2,62],[2,70],[2,77],[2,84],[2,89],[2,94],[2,102],[2,106],[2,113],[2,120],[2,127],[2,135],[2,142],[2,146],[2,154],[2,164],[2,170],[2,177],[2,182],[2,187],[2,191],[2,197],[2,203],[2,211],[2,216],[2,220],[2,225],[2,231],[2,234],[2,238],[2,246],[2,249],[2,253],[2,257],[2,260],[2,265],[2,270],[2,275],[2,282],[2,283],[3,1],[3,10],[3,16],[3,23],[3,30],[3,38],[3,46],[3,53],[3,62],[3,71],[3,78],[3,84],[3,92],[3,101],[3,109],[3,116],[3,122],[3,133],[3,141],[3,149],[3,154],[3,158],[3,166],[3,174],[3,181],[3,187],[3,195],[4,1],[4,7],[4,12],[4,15],[4,20],[4,24],[4,27],[4,34],[4,38],[4,45],[4,52],[4,60],[4,66],[4,75],[4,80],[4,87],[4,92],[4,95],[4,102],[4,106],[4,114],[4,122],[4,128],[4,135],[4,141],[4,148],[4,155],[4,163],[4,171],[4,176],[5,3],[5,6],[5,10],[5,14],[5,18],[5,24],[5,32],[5,37],[5,42],[5,46],[5,51],[5,58],[5,65],[5,71],[5,77],[5,83],[5,90],[5,96],[5,104],[5,109],[5,114],[6,1],[6,9],[6,19],[6,28],[6,36],[6,45],[6,53],[6,60],[6,69],[6,74],[6,82],[6,91],[6,95],[6,102],[6,111],[6,119],[6,125],[6,132],[6,138],[6,143],[6,147],[6,152],[6,158],[7,1],[7,12],[7,23],[7,31],[7,38],[7,44],[7,52],[7,58],[7,68],[7,74],[7,82],[7,88],[7,96],[7,105],[7,121],[7,131],[7,138],[7,144],[7,150],[7,156],[7,160],[7,164],[7,171],[7,179],[7,188],[7,196],[8,1],[8,9],[8,17],[8,26],[8,34],[8,41],[8,46],[8,53],[8,62],[8,70],[9,1],[9,7],[9,14],[9,21],[9,27],[9,32],[9,37],[9,41],[9,48],[9,55],[9,62],[9,69],[9,73],[9,80],[9,87],[9,94],[9,100],[9,107],[9,112],[9,118],[9,123],[10,1],[10,7],[10,15],[10,21],[10,26],[10,34],[10,43],[10,54],[10,62],[10,71],[10,79],[10,89],[10,98],[10,107],[11,6],[11,13],[11,20],[11,29],[11,38],[11,46],[11,54],[11,63],[11,72],[11,82],[11,89],[11,98],[11,109],[11,118],[12,5],[12,15],[12,23],[12,31],[12,38],[12,44],[12,53],[12,64],[12,70],[12,79],[12,87],[12,96],[12,104],[13,1],[13,6],[13,14],[13,19],[13,29],[13,35],[13,43],[14,6],[14,11],[14,19],[14,25],[14,34],[14,43],[15,1],[15,16],[15,32],[15,52],[15,71],[15,91],[16,7],[16,15],[16,27],[16,35],[16,43],[16,55],[16,65],[16,73],[16,80],[16,88],[16,94],[16,103],[16,111],[16,119],[17,1],[17,8],[17,18],[17,28],[17,39],[17,50],[17,59],[17,67],[17,76],[17,87],[17,97],[17,105],[18,5],[18,16],[18,21],[18,28],[18,35],[18,46],[18,54],[18,62],[18,75],[18,84],[18,98],[19,1],[19,12],[19,26],[19,39],[19,52],[19,65],[19,77],[19,96],[20,13],[20,38],[20,52],[20,65],[20,77],[20,88],[20,99],[20,114],[20,126],[21,1],[21,11],[21,25],[21,36],[21,45],[21,58],[21,73],[21,82],[21,91],[21,102],[22,1],[22,6],[22,16],[22,24],[22,31],[22,39],[22,47],[22,56],[22,65],[22,73],[23,1],[23,18],[23,28],[23,43],[23,60],[23,75],[23,90],[23,105],[24,1],[24,11],[24,21],[24,28],[24,32],[24,37],[24,44],[24,54],[24,59],[24,62],[25,3],[25,12],[25,21],[25,33],[25,44],[25,56],[25,68],[26,1],[26,20],[26,40],[26,61],[26,84],[26,112],[26,137],[26,160],[26,184],[26,207],[27,1],[27,14],[27,23],[27,36],[27,45],[27,56],[27,64],[27,77],[27,89],[28,6],[28,14],[28,22],[28,29],[28,36],[28,44],[28,51],[28,60],[28,71],[28,78],[28,85],[29,7],[29,15],[29,24],[29,31],[29,39],[29,46],[29,53],[29,64],[30,6],[30,16],[30,25],[30,33],[30,42],[30,51],[31,1],[31,12],[31,20],[31,29],[32,1],[32,12],[32,21],[33,1],[33,7],[33,16],[33,23],[33,31],[33,36],[33,44],[33,51],[33,55],[33,63],[34,1],[34,8],[34,15],[34,23],[34,32],[34,40],[34,49],[35,4],[35,12],[35,19],[35,31],[35,39],[35,45],[36,13],[36,28],[36,41],[36,55],[36,71],[37,1],[37,25],[37,52],[37,77],[37,103],[37,127],[37,154],[38,1],[38,17],[38,27],[38,43],[38,62],[38,84],[39,6],[39,11],[39,22],[39,32],[39,41],[39,48],[39,57],[39,68],[39,75],[40,8],[40,17],[40,26],[40,34],[40,41],[40,50],[40,59],[40,67],[40,78],[41,1],[41,12],[41,21],[41,30],[41,39],[41,47],[42,1],[42,11],[42,16],[42,23],[42,32],[42,45],[42,52],[43,11],[43,23],[43,34],[43,48],[43,61],[43,74],[44,1],[44,19],[44,40],[45,1],[45,14],[45,23],[45,33],[46,6],[46,15],[46,21],[46,29],[47,1],[47,12],[47,20],[47,30],[48,1],[48,10],[48,16],[48,24],[48,29],[49,5],[49,12],[50,1],[50,16],[50,36],[51,7],[51,31],[51,52],[52,15],[52,32],[53,1],[53,27],[53,45],[54,7],[54,28],[54,50],[55,17],[55,41],[55,68],[56,17],[56,51],[56,77],[57,4],[57,12],[57,19],[57,25],[58,1],[58,7],[58,12],[58,22],[59,4],[59,10],[59,17],[60,1],[60,6],[60,12],[61,6],[62,1],[62,9],[63,5],[64,1],[64,10],[65,1],[65,6],[66,1],[66,8],[67,1],[67,13],[67,27],[68,16],[68,43],[69,9],[69,35],[70,11],[70,40],[71,11],[72,1],[72,14],[73,1],[73,20],[74,18],[74,48],[75,20],[76,6],[76,26],[77,20],[78,1],[78,31],[79,16],[80,1],[81,1],[82,1],[83,7],[83,35],[85,1],[86,1],[87,16],[89,1],[89,24],[91,1],[92,15],[95,1],[97,1],[98,8],[100,10],[103,1],[106,1],[109,1],[112,1]];
+function pageOf(s, a) { let lo = 0, hi = 603; while (lo < hi) { const m = (lo + hi + 1) >> 1, [ps, pa] = PAGES[m]; if (ps < s || (ps === s && pa <= a)) lo = m; else hi = m - 1; } return lo + 1; }
+function pageStartAt(s, a) { const p = pageOf(s, a); return PAGES[p - 1][0] === s && PAGES[p - 1][1] === a ? p : 0; }
+function pageEnd(p) { if (p >= 604) return [114, 6]; const [s, a] = PAGES[p]; return a > 1 ? [s, a - 1] : [s - 1, SURAS[s - 2][2]]; }
+function pageSegments(p) { const [s1, a1] = PAGES[p - 1], [s2, a2] = pageEnd(p), out = []; for (let s = s1; s <= s2; s++) out.push([s, s === s1 ? a1 : 1, s === s2 ? a2 : SURAS[s - 1][2]]); return out; }
+const dayPages = () => store.get("dayPages", {});
+function markPageRead(p) {
+  store.set("lastPage", p);
+  const d = dayPages(), k = dayKey(); const arr = d[k] || [];
+  if (!arr.includes(p)) { arr.push(p); d[k] = arr; const keys = Object.keys(d).sort(); while (keys.length > 60) delete d[keys.shift()]; store.set("dayPages", d); }
+  return arr.length;
+}
+const todayPages = () => (dayPages()[dayKey()] || []).length;
+const curCache = {};
+function curFor(s) {
+  if (!curCache[s]) curCache[s] = { s, verses: localVerses(s), tr: {}, hasUz: true, lang: "en", apiLang: "english", trErr: false };
+  return curCache[s];
+}
+function vPage(p) {
+  p = Math.max(1, Math.min(604, p | 0));
+  const segs = pageSegments(p), [s1, a1] = PAGES[p - 1];
+  const done = markPageRead(p), goal = S.pageGoal || 10;
+  setTitle(`${p}-sahifa`, true, { icon: "#", fn: pageJump },
+    { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); render(0); } });
+  view.innerHTML = `<div class="pg-top"><span>${esc(segs.map(x => SURAS[x[0] - 1][0]).join(" · "))}</span><span>${juzOf(s1, a1)}-pora</span><span class="${done >= goal ? "ok" : ""}">Bugun: ${done}/${goal} sahifa</span></div>
+    <div id="pgBody"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="pg-nav"><button class="btn out" id="pgPrev" ${p <= 1 ? "disabled" : ""}>← ${p > 1 ? p - 1 : ""}</button><span class="pg-num">${p} / 604</span><button class="btn" id="pgNext" ${p >= 604 ? "disabled" : ""}>${p < 604 ? p + 1 : ""} →</button></div>`;
+  const go = (d) => { const np = p + d; if (np < 1 || np > 604) return; stack[stack.length - 1].args = [np]; render(0); };
+  $("#pgPrev").onclick = () => go(-1); $("#pgNext").onclick = () => go(1);
+  const alive = () => stack.length && stack[stack.length - 1].fn === vPage && stack[stack.length - 1].args[0] === p;
+  Promise.all(segs.map(x => getEnc(S.tr_key, x[0]).then(t => { curFor(x[0]).tr = t; }).catch(() => {}))).then(() => {
+    if (!alive()) return;
+    const body = $("#pgBody"); if (!body) return;
+    body.innerHTML = segs.map(([s, a, b]) => {
+      cur = curFor(s);
+      let h = "";
+      if (a === 1) h += `<div class="pg-sura">سُورَةُ ${SURAS[s - 1][1]}<small>${s}. ${esc(SURAS[s - 1][0])}</small></div>` + (s !== 1 && s !== 9 ? `<div class="bism">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>` : "");
+      const vs = cur.verses.filter(v => v.verse_number >= a && v.verse_number <= b);
+      if (S.arOnly) h += `<div class="mushaf pg-mushaf">` + vs.map(v => { const aw = ayahWords(s, v, false); return `<span class="ma ${aw.fallbackFont ? "ar-amiri" : ""}" data-n="${v.verse_number}">${aw.html}</span>`; }).join(" ") + `</div>`;
+      else h += vs.map(v => ayahHtml0(s, v)).join("");
+      return `<div class="pg-seg" data-s="${s}">${h}</div>`;
+    }).join("");
+    $$(".pg-seg", body).forEach(el => { const s = +el.dataset.s; el.addEventListener("click", () => { cur = curFor(s); }, true); bindReader(el, s); });
+  });
+  // Barmoq bilan varaqlash: o'ngga surish — keyingi sahifa (mushafdagidek), chapga — oldingi
+  let x0 = null, y0 = 0;
+  view.ontouchstart = e => { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } };
+  view.ontouchend = e => { if (x0 === null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx > 0 ? 1 : -1); };
+}
+function pageJump() {
+  const lp = store.get("lastPage", 1);
+  openSheet(`<h3>Sahifaga o'tish</h3><input class="search" id="pjN" type="number" inputmode="numeric" min="1" max="604" placeholder="1 – 604" value="${lp}">
+    <div class="playall"><button class="btn" id="pjGo">O'tish</button></div>
+    <div class="set" style="margin-top:12px"><label>Kunlik maqsad (sahifa)</label><div class="seg" id="pgGoal">${[2, 5, 10, 20, 30].map(n => `<button data-v="${n}" class="${(S.pageGoal || 10) === n ? "on" : ""}">${n}</button>`).join("")}</div></div>`, (b) => {
+    const go = () => { const n = +$("#pjN", b).value; if (n >= 1 && n <= 604) { closeSheet(); openPage(n); } else toast("1 dan 604 gacha raqam kiriting"); };
+    $("#pjGo", b).onclick = go; $("#pjN", b).onkeydown = e => { if (e.key === "Enter") go(); };
+    $$("#pgGoal button", b).forEach(x => x.onclick = () => { S.pageGoal = +x.dataset.v; save(); $$("#pgGoal button", b).forEach(y => y.classList.toggle("on", y === x)); });
+  });
+}
+function openPage(p) {
+  if (tab !== "quran") { tab = "quran"; $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === "quran")); stack = [{ fn: vHome, args: [] }]; }
+  const top = stack[stack.length - 1];
+  if (top.fn === vPage) { top.args = [p]; render(0); } else push(vPage, [p]);
+}
+
 // ---------- Avto-aylantirish (o'qiyotganda sekin pastga tushish) ----------
 const AS_SPEEDS = [6, 9, 13, 18, 24, 31, 40, 52, 66, 85]; // px/soniya
 const AS = { on: false, paused: false, raf: 0, last: 0, pos: 0, hold: 0, wake: null };
@@ -305,6 +373,25 @@ function asTick(t) {
   }
 }
 
+// ---------- To'liq ekran (faqat arabcha o'qiganda tepa/pastdagi panellar yashirinadi) ----------
+const IMM = { t: 0, on: false, armed: false, bound: false };
+function immSet(on) {
+  if (IMM.on === on) return;
+  IMM.on = on; document.body.classList.toggle("imm", on);
+  if (NATIVE && Native.setImmersive) try { Native.setImmersive(on); } catch (e) {}
+}
+function immArm() { clearTimeout(IMM.t); if (IMM.armed) IMM.t = setTimeout(() => { if (IMM.armed && $("#sheet").classList.contains("hidden")) immSet(true); }, 3000); }
+function immUpdate() {
+  const top = stack[stack.length - 1];
+  IMM.armed = !!(top && (top.fn === vSura || top.fn === vPage) && S.arOnly && S.immersive !== false);
+  if (!IMM.bound) {
+    IMM.bound = true;
+    view.addEventListener("click", e => { if (IMM.on) { e.stopPropagation(); e.preventDefault(); immSet(false); } immArm(); }, true);
+    view.addEventListener("scroll", () => { if (!IMM.on) immArm(); }, { passive: true });
+  }
+  if (!IMM.armed) { clearTimeout(IMM.t); immSet(false); } else immArm();
+}
+
 // ---------- Bosh sahifa (suralar ro'yxati) ----------
 let listFilter = "all", listQuery = "";
 function vHome() {
@@ -323,10 +410,15 @@ function vHome() {
   h += `<div class="pad" style="padding-bottom:4px"><input class="search" id="q" placeholder="Sura nomi yoki raqami..." value="${esc(listQuery)}"></div>
     <div class="chips"><button class="chip ${listFilter === "all" ? "on" : ""}" data-f="all">Barcha suralar</button>
     <button class="chip ${listFilter === "juz" ? "on" : ""}" data-f="juz">30 pora (juz)</button>
+    <button class="chip ${listFilter === "page" ? "on" : ""}" data-f="page">604 sahifa</button>
     <button class="chip ${listFilter === "short" ? "on" : ""}" data-f="short">Yod olish uchun qisqa suralar</button></div>
     <div class="card" id="list"></div>`;
   view.innerHTML = h;
   const c = $("#contBtn"); if (c) c.onclick = () => openSura(last.s, last.a);
+  const lp = store.get("lastPage", 0);
+  if (lp) { const hero = $(".hero", view); if (hero) { const d = document.createElement("div"); d.className = "pg-hero";
+    d.innerHTML = `<button class="btn light" id="contPage">📄 ${Math.min(604, lp + 1)}-sahifadan davom</button><span>Bugun: ${todayPages()}/${S.pageGoal || 10} sahifa</span>`;
+    hero.appendChild(d); $("#contPage").onclick = () => openPage(Math.min(604, lp + 1)); } }
   const st = $("#startBtn"); if (st) st.onclick = () => { goTab("learn"); push(vAlphabet); };
   $$(".chip[data-f]").forEach(b => b.onclick = () => { listFilter = b.dataset.f; render(view.scrollTop); });
   const q = $("#q");
@@ -335,6 +427,18 @@ function vHome() {
 }
 function fillList() {
   const q = listQuery.trim().toLowerCase().replace(/[‘’'`ʻ\-\s]/g, "");
+  if (listFilter === "page") {
+    const n = parseInt(q, 10), lp = store.get("lastPage", 0);
+    let h = "";
+    for (let j = 1; j <= 30; j++) {
+      const p1 = pageOf(JUZ[j - 1][0], JUZ[j - 1][1]), p2 = j < 30 ? pageOf(JUZ[j][0], JUZ[j][1]) - 1 : 604;
+      const ps = []; for (let p = p1; p <= p2; p++) if (!n || String(p).startsWith(String(n))) ps.push(p);
+      if (ps.length) h += `<div class="pg-jh">${j}-pora</div><div class="pg-grid">${ps.map(p => `<button class="pg-b ${p === lp ? "on" : ""}" data-p="${p}">${p}</button>`).join("")}</div>`;
+    }
+    $("#list").innerHTML = h || `<div class="empty">Hech narsa topilmadi</div>`;
+    $$("#list .pg-b").forEach(b => b.onclick = () => openPage(+b.dataset.p));
+    return;
+  }
   if (listFilter === "juz") {
     let js = Array.from({ length: 30 }, (_, i) => i + 1);
     if (q) js = js.filter(j => String(j) === q.replace(/pora|juz/g, "") || juzSegments(j).some(x => SURAS[x[0] - 1][0].toLowerCase().replace(/[‘’'`ʻ\-\s]/g, "").includes(q)));
@@ -397,7 +501,7 @@ function vSura(s, gotoA) {
   setTitle(`${s}. ${info[0]}`, true, { icon: "Aa", fn: () => readerSettings(s) },
     { icon: "ع", on: S.arOnly, fn: () => { S.arOnly = !S.arOnly; save(); toast(S.arOnly ? "Faqat arabcha matn" : "O'rganish ko'rinishi"); const a = topAyah(); stack[stack.length - 1].args = [s, a]; render(0); } });
   view.innerHTML = `<div class="sura-head"><div class="ar">سُورَةُ ${info[1]}</div>
-    <div class="meta">${info[3] === "M" ? "Makkiy" : "Madaniy"} sura · ${info[2]} oyat · ${(() => { const a = juzOf(s, 1), b = juzOf(s, info[2]); return a === b ? a + "-pora" : a + "–" + b + "-poralar"; })()}</div>
+    <div class="meta">${info[3] === "M" ? "Makkiy" : "Madaniy"} sura · ${info[2]} oyat · ${(() => { const a = juzOf(s, 1), b = juzOf(s, info[2]); return a === b ? a + "-pora" : a + "–" + b + "-poralar"; })()} · ${(() => { const a = pageOf(s, 1), b = pageOf(s, info[2]); return a === b ? a + "-sahifa" : a + "–" + b + "-sahifalar"; })()}</div>
     <div class="playall"><button class="btn" id="playAll">▶ Butun surani tinglash</button><button class="btn out" id="playFrom">Davomidan</button></div>
     <div class="playall"><button class="btn out" id="autoRead">⇣ Avto o'qish</button></div></div>
     <div id="rd"><div class="loading"><div class="spinner"></div>Yuklanmoqda...</div></div>`;
@@ -424,6 +528,7 @@ function vSura(s, gotoA) {
     h += `<div class="foot">Arabcha matn: Tanzil/QUL · Morfologiya: quran-search-engine (MIT) · So'z ma'lumotlari: Quran.com · Tarjima va tafsir: QuranEnc.com · Audio: EveryAyah.com</div>`;
     rd.innerHTML = h;
     bindReader(rd, s);
+    $$(".pgmark[data-p]", rd).forEach(m => m.onclick = (e) => { e.stopPropagation(); openPage(+m.dataset.p); });
     const ns = $("#nextSura"); if (ns) ns.onclick = () => { const keep = AS.on; stack[stack.length - 1].args = [s + 1, 1]; render(0); if (keep) setTimeout(asStart, 600); };
     if (keepScroll) view.scrollTop = st;
     else if (gotoA && gotoA > 1) { const el = $("#a" + gotoA); if (el) view.scrollTop = el.offsetTop - 8; }
@@ -827,8 +932,8 @@ function vReview(queue, extra) {
 }
 
 function ayahHtml(s, v) {
-  const jm = juzStartAt(s, v.verse_number);
-  return (jm ? `<div class="juzmark">۞ ${jm}-pora (juz) boshlanishi ۞</div>` : "") + ayahHtml0(s, v);
+  const n = v.verse_number, jm = juzStartAt(s, n), pm = pageStartAt(s, n);
+  return (jm ? `<div class="juzmark">۞ ${jm}-pora (juz) boshlanishi ۞</div>` : "") + (pm && (n > 1 || s === 1) ? `<div class="pgmark" data-p="${pm}">${pm}-sahifa</div>` : "") + ayahHtml0(s, v);
 }
 function ayahHtml0(s, v) {
   const n = v.verse_number, key = s + ":" + n;
@@ -871,8 +976,8 @@ function bindMushafPicker(root, onChange) {
 // Faqat arabcha matn — mushaf kabi uzluksiz o'qish
 function mushafHtml(s) {
   return `<div class="mushaf">` + cur.verses.map(v => {
-    const aw = ayahWords(s, v, false);
-    return `<span class="ma ${aw.fallbackFont ? "ar-amiri" : ""}" id="a${v.verse_number}" data-n="${v.verse_number}">${aw.html}</span>`;
+    const aw = ayahWords(s, v, false), pm = v.verse_number > 1 ? pageStartAt(s, v.verse_number) : 0;
+    return (pm ? `<span class="pgmark-in">${pm}</span>` : "") + `<span class="ma ${aw.fallbackFont ? "ar-amiri" : ""}" id="a${v.verse_number}" data-n="${v.verse_number}">${aw.html}</span>`;
   }).join(" ") + `</div><div class="note" style="text-align:center">So'zni bosing — ma'nosi chiqadi. ﴿ ﴾ raqamini bosing — tinglash, tafsir, tarjima.</div>`;
 }
 function ayahMenu(s, n) {
@@ -1370,7 +1475,8 @@ function vSettings() {
   <div class="card">
     <div class="set"><label>Qori</label><select id="recSel">${RECITERS.map(r => `<option value="${r[0]}" ${S.reciter === r[0] ? "selected" : ""}>${r[1]}</option>`).join("")}</select></div>
     <div class="set"><label>Har oyatni takrorlash</label>${seg("repeat", [[1, "1"], [2, "2"], [3, "3"], [5, "5"], [10, "10"]])}</div>
-    ${tg("autoscroll", "Tinglayotganda oyatga avtomatik o'tish")}</div>
+    ${tg("autoscroll", "Tinglayotganda oyatga avtomatik o'tish")}
+    ${tg("immersive", "Faqat arabcha o'qiganda panellarni yashirish (to'liq ekran)")}</div>
   <div class="card">
     <div class="set"><label>Kunlik maqsad (takrorlangan so'zlar)</label>${seg("goal", [[5, "5"], [10, "10"], [20, "20"], [30, "30"], [50, "50"]])}</div>
     <div class="set"><div class="toggle"><label>Kunlik eslatma</label><div class="sw ${S.remOn ? "on" : ""}" id="remSw"></div></div>
@@ -1384,7 +1490,7 @@ function vSettings() {
       <button class="btn" id="dlAll" style="margin-top:10px;width:100%">Barcha suralarni yuklab olish</button>
       <div class="progress hidden" id="dlProg"><div style="width:0"></div></div><div class="hint" id="dlInfo"></div></div>
     <div class="set"><label>Saqlangan ma'lumotlar: <span id="cSize">${NATIVE ? Native.cacheSize() : "-"}</span></label><button class="btn out" id="clr">Keshni tozalash</button></div></div>
-  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.4<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
+  <div class="foot">Qur'on O'rgan: so'zma-so'z — web v2.6<br>Arabcha matn va so'zlar ma'lumoti: Quran.com · O'zbekcha tarjimalar va tafsir: QuranEnc.com, fawazahmed0/quran-api (Muhammad Sodiq Muhammad Yusuf, Alouddin Mansur, Ruvvod markazi) · Audio: EveryAyah.com.<br>O'zbekcha so'zma-so'z ma'nolar yordamchi vosita sifatida tayyorlangan; aniq ma'no uchun to'liq tarjima va tafsirga tayaning.</div>`;
   $$(".sw", view).forEach(x => x.onclick = () => { S[x.dataset.t] = !S[x.dataset.t]; x.classList.toggle("on"); save(); });
   $$(".seg", view).forEach(g => $$("button", g).forEach(x => x.onclick = () => {
     const k = g.dataset.k; S[k] = (k === "repeat" || k === "goal") ? +x.dataset.v : x.dataset.v; if (k === "goal") syncNative();
